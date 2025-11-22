@@ -152,7 +152,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 Classificador & Feedback", "🚀 Avalia�
 with tab1:
     col1, col2 = st.columns(2)
     with col1:
-        tag = st.text_input("Tag", value="1298-31-PIT-0122")
+        tag = st.text_input("Tag", value="Bomba 1234-B-5")
     with col2:
         opcoes_impacto = list(map_impacto_frontend.keys())
         impacto_selecionado = st.selectbox("Impacto da Falha (FailureImp)", opcoes_impacto)
@@ -422,3 +422,4 @@ with tab4:
     with st.expander("Modos de Falha"): st.table(pd.DataFrame(list(map_mode.items()), columns=['Cod', 'Desc']))
     with st.expander("Mecanismos"): st.table(pd.DataFrame(list(map_mech.items()), columns=['Cod', 'Desc']))
     with st.expander("Detecção"): st.table(pd.DataFrame(list(map_det.items()), columns=['Cod', 'Desc']))
+
