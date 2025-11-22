@@ -5,18 +5,22 @@ import re
 import nltk
 import xgboost
 import numpy as np
+import os
 from nltk.corpus import stopwords
 import plotly.express as px 
 
-# --- Configuração da Página ---
+# --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Classificador de Falhas Pro", layout="wide")
-st.title("🔧 Classificador de Falhas - Versão Pro")
+st.title("🔧 Classificador de Falhas - Versão Completa")
 
-# --- Inicializar Histórico ---
+# --- 2. INICIALIZAR MEMÓRIA (SESSION STATE) ---
+# Isso garante que o histórico não suma durante a navegação
 if 'historico' not in st.session_state:
     st.session_state.historico = []
+if 'resultado_ia' not in st.session_state:
+    st.session_state.resultado_ia = None
 
-# --- Funções Auxiliares ---
+# --- 3. FUNÇÕES E CARREGAMENTO ---
 @st.cache_resource
 def configurar_nltk():
     try:
@@ -36,9 +40,7 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# --- DICIONÁRIOS DE TRADUÇÃO (ATUALIZADOS) ---
-
-# Mapeamento: Mecanismo de Falha (Já estava com tradução)
+# --- 4. DICIONÁRIOS TRADUZIDOS ---
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -70,100 +72,55 @@ map_mech = {
     '6.3': 'Other (Outro)', '6.4': 'Unknown (Desconhecido)', '6.5': 'Deviation from design (Desvio de projeto)'
 }
 
-# Mapeamento: Método de Detecção (AGORA COM TRADUÇÃO)
 map_det = {
-    '1': 'Periodic maintenance (Manutenção Periódica)', 
-    '2': 'Functional testing (Teste Funcional)', 
-    '3': 'Inspection (Inspeção)', 
-    '4': 'Periodic condition monitoring (Monitoramento de condição periódico)', 
-    '5': 'Continuous condition monitoring (Monitoramento de condição contínuo)', 
-    '6': 'Production interference (Interferência na produção)', 
-    '7': 'Casual observation (Observação casual)', 
-    '8': 'Corrective maintenance (Manutenção corretiva)', 
-    '9': 'On demand (Sob demanda)', 
-    '10': 'Other (Outro)'
+    '1': 'Periodic maintenance (Manutenção Periódica)', '2': 'Functional testing (Teste Funcional)', 
+    '3': 'Inspection (Inspeção)', '4': 'Periodic condition monitoring (Monitoramento de condição periódico)', 
+    '5': 'Continuous condition monitoring (Monitoramento de condição contínuo)', '6': 'Production interference (Interferência na produção)', 
+    '7': 'Casual observation (Observação casual)', '8': 'Corrective maintenance (Manutenção corretiva)', 
+    '9': 'On demand (Sob demanda)', '10': 'Other (Outro)'
 }
 
-# Mapeamento: Modo de Falha (AGORA COM TRADUÇÃO)
 map_mode = {
-    'OTH': 'Other (Outros)', 
-    'ELP': 'External leakage - process medium (Vazamento externo - meio de processo)', 
-    'BRD': 'Breakdown (Quebra/Colapso)', 
-    'ELU': 'External leakage - utility medium (Vazamento externo - utilidades)', 
-    'FTI': 'Failure to function as intended (Falha na função pretendida)', 
-    'FTO': 'Failure to open on demand (Falha ao abrir sob demanda)', 
-    'LCP': 'Leakage in close position (Vazamento na posição fechada)', 
-    'DOP': 'Delayed operation (Operação atrasada)', 
-    'LOO': 'Low output (Saída baixa)', 
-    'PDE': 'Parameter deviation (Desvio de parâmetro)', 
-    'FTF': 'Failure to function on demand (Falha ao funcionar sob demanda)', 
-    'STD': 'Structural Deficiency (Deficiência Estrutural)', 
-    'DEX': 'Defective EX Protection (Proteção EX defeituosa)', 
-    'FTS': 'Failure to start on demand (Falha ao partir sob demanda)', 
-    'FTC': 'Failure to close on demand (Falha ao fechar sob demanda)', 
-    'LOP': 'Loss Of Power (Perda de Potência/Energia)', 
-    'STP': 'Failure to stop on demand (Falha ao parar sob demanda)', 
-    'SLP': 'Slippage (Deslizamento/Patinação)', 
-    'PLU': 'Plugged / Choked (Entupido/Obstruído)', 
-    'OHE': 'Overheating (Superaquecimento)', 
-    'IHT': 'Insufficient heat transfer (Transferência de calor insuficiente)', 
-    'CTD': 'Contact danger / Electric shock (Perigo de contato / Choque elétrico)', 
-    'LOA': 'Load drop (Queda de carga)', 
-    'EXP': 'Overpressure/Explosion (Sobrepressão/Explosão)', 
-    'VIB': 'Vibration (Vibração)', 
-    'B000': 'Abnormal instrument signal (Sinal de instrumento anormal)', 
-    'C000': 'External leakage (Vazamento externo)', 
-    'I000': 'Blocked/restricted/coated/scaling (Bloqueado/restrito/incrustado)', 
-    'F000': 'Does not operate on demand (Não opera sob demanda)', 
-    'K000': 'Vibration/ noise (Vibração/Ruído)', 
-    'D000': 'Internal leakage (Vazamento interno)', 
-    'INL': 'Internal leakage (Vazamento interno)', 
-    'LOR': 'Loss of redundancy (Perda de redundância)', 
-    'AOL': 'Abnormal output - low (Saída anormal - baixa)', 
-    'HIO': 'High output (Saída alta)', 
-    'FOV': 'Faulty output voltage (Tensão de saída defeituosa)', 
-    'NAC': 'Not acceptable alarm condition (Condição de alarme não aceitável)', 
-    'ELF': 'External leakage - fuel (Vazamento externo - combustível)', 
-    'OSR': 'Overload/slow response/system warning (Sobrecarga/resposta lenta/aviso)', 
-    'STC': 'Struct. deficiency containment risk (Deficiência estrutural - risco de contenção)', 
-    'UST': 'Spurious stop (Parada espúria)', 
-    'AIR': 'Abnormal instrument reading (Leitura anormal de instrumento)', 
-    'SER': 'Minor in-service problems (Pequenos problemas em serviço)', 
-    'FCO': 'Failure to connect (Falha ao conectar)', 
-    'ERO': 'Erratic output (Saída errática)', 
-    'NOI': 'Noise (Ruído)', 
-    'SPO': 'Spurious operation (Operação espúria)', 
-    'UNK': 'Unknown (Desconhecido)', 
-    'SHH': 'Spurious high alarm level (Nível de alarme alto espúrio)', 
-    'NOO': 'No output (Sem saída)', 
-    'FRO': 'Failure to rotate (Falha ao rotacionar)', 
-    'PTF': 'Power / signal transmission failure (Falha de transmissão de energia/sinal)', 
-    'Y000': 'No failure (Sem falha)', 
-    'POW': 'Insufficient power (Potência insuficiente)', 
-    'FTL': 'Failure to lock/unlock (Falha ao travar/destravar)', 
-    'FDC': 'Failure to disconnect (Falha ao desconectar)', 
-    '021': 'COM I/O module error (Erro de módulo I/O)', 
-    'SBU': 'Sludge build-up (Acúmulo de borra/lodo)', 
-    'NON': 'No immediate effect (Sem efeito imediato)', 
-    'J000': 'Minor In-service Problem (Pequeno problema em serviço)', 
-    '000': 'UPS-failure (Falha de UPS)', 
-    'SLL': 'Spurious low alarm level (Nível de alarme baixo espúrio)', 
-    '002': 'Transformer oil level too low (Nível de óleo do transformador muito baixo)', 
-    '112': 'Transformer oil level too low (Nível de óleo do transformador muito baixo)', 
-    'SCF': 'Secondary containment failure (Falha na contenção secundária)', 
-    'WCL': 'Well-to-control-line communication (Comunicação poço-linha de controle)', 
-    'E000': 'Physical damage (Dano físico)', 
-    'CSF': 'Control / signal failure (Falha de controle/sinal)', 
-    'LRM': 'Loss of remote management (Perda de gerenciamento remoto)', 
-    'ISB': 'Information security breach (Violação de segurança da informação)', 
-    'ILP': 'Internal leakage - process medium (Vazamento interno - fluido de processo)', 
-    'EFA': 'Electronic failure (Falha eletrônica)', 
-    '2-RC': 'Recommendation (Recomendação)', 
-    '5-OK': 'OK (OK)', 
-    'H000': 'Failed During Operation (Falhou durante operação)'
+    'OTH': 'Other (Outros)', 'ELP': 'External leakage - process medium (Vazamento externo - meio de processo)', 
+    'BRD': 'Breakdown (Quebra/Colapso)', 'ELU': 'External leakage - utility medium (Vazamento externo - utilidades)', 
+    'FTI': 'Failure to function as intended (Falha na função pretendida)', 'FTO': 'Failure to open on demand (Falha ao abrir sob demanda)', 
+    'LCP': 'Leakage in close position (Vazamento na posição fechada)', 'DOP': 'Delayed operation (Operação atrasada)', 
+    'LOO': 'Low output (Saída baixa)', 'PDE': 'Parameter deviation (Desvio de parâmetro)', 
+    'FTF': 'Failure to function on demand (Falha ao funcionar sob demanda)', 'STD': 'Structural Deficiency (Deficiência Estrutural)', 
+    'DEX': 'Defective EX Protection (Proteção EX defeituosa)', 'FTS': 'Failure to start on demand (Falha ao partir sob demanda)', 
+    'FTC': 'Failure to close on demand (Falha ao fechar sob demanda)', 'LOP': 'Loss Of Power (Perda de Potência/Energia)', 
+    'STP': 'Failure to stop on demand (Falha ao parar sob demanda)', 'SLP': 'Slippage (Deslizamento/Patinação)', 
+    'PLU': 'Plugged / Choked (Entupido/Obstruído)', 'OHE': 'Overheating (Superaquecimento)', 
+    'IHT': 'Insufficient heat transfer (Transferência de calor insuficiente)', 'CTD': 'Contact danger / Electric shock (Perigo de contato / Choque elétrico)', 
+    'LOA': 'Load drop (Queda de carga)', 'EXP': 'Overpressure/Explosion (Sobrepressão/Explosão)', 
+    'VIB': 'Vibration (Vibração)', 'B000': 'Abnormal instrument signal (Sinal de instrumento anormal)', 
+    'C000': 'External leakage (Vazamento externo)', 'I000': 'Blocked/restricted/coated/scaling (Bloqueado/restrito/incrustado)', 
+    'F000': 'Does not operate on demand (Não opera sob demanda)', 'K000': 'Vibration/ noise (Vibração/Ruído)', 
+    'D000': 'Internal leakage (Vazamento interno)', 'INL': 'Internal leakage (Vazamento interno)', 
+    'LOR': 'Loss of redundancy (Perda de redundância)', 'AOL': 'Abnormal output - low (Saída anormal - baixa)', 
+    'HIO': 'High output (Saída alta)', 'FOV': 'Faulty output voltage (Tensão de saída defeituosa)', 
+    'NAC': 'Not acceptable alarm condition (Condição de alarme não aceitável)', 'ELF': 'External leakage - fuel (Vazamento externo - combustível)', 
+    'OSR': 'Overload/slow response/system warning (Sobrecarga/resposta lenta/aviso)', 'STC': 'Struct. deficiency containment risk (Deficiência estrutural - risco de contenção)', 
+    'UST': 'Spurious stop (Parada espúria)', 'AIR': 'Abnormal instrument reading (Leitura anormal de instrumento)', 
+    'SER': 'Minor in-service problems (Pequenos problemas em serviço)', 'FCO': 'Failure to connect (Falha ao conectar)', 
+    'ERO': 'Erratic output (Saída errática)', 'NOI': 'Noise (Ruído)', 'SPO': 'Spurious operation (Operação espúria)', 
+    'UNK': 'Unknown (Desconhecido)', 'SHH': 'Spurious high alarm level (Nível de alarme alto espúrio)', 
+    'NOO': 'No output (Sem saída)', 'FRO': 'Failure to rotate (Falha ao rotacionar)', 
+    'PTF': 'Power / signal transmission failure (Falha de transmissão de energia/sinal)', 'Y000': 'No failure (Sem falha)', 
+    'POW': 'Insufficient power (Potência insuficiente)', 'FTL': 'Failure to lock/unlock (Falha ao travar/destravar)', 
+    'FDC': 'Failure to disconnect (Falha ao desconectar)', '021': 'COM I/O module error (Erro de módulo I/O)', 
+    'SBU': 'Sludge build-up (Acúmulo de borra/lodo)', 'NON': 'No immediate effect (Sem efeito imediato)', 
+    'J000': 'Minor In-service Problem (Pequeno problema em serviço)', '000': 'UPS-failure (Falha de UPS)', 
+    'SLL': 'Spurious low alarm level (Nível de alarme baixo espúrio)', '002': 'Transformer oil level too low (Nível de óleo do transformador muito baixo)', 
+    '112': 'Transformer oil level too low (Nível de óleo do transformador muito baixo)', 'SCF': 'Secondary containment failure (Falha na contenção secundária)', 
+    'WCL': 'Well-to-control-line communication (Comunicação poço-linha de controle)', 'E000': 'Physical damage (Dano físico)', 
+    'CSF': 'Control / signal failure (Falha de controle/sinal)', 'LRM': 'Loss of remote management (Perda de gerenciamento remoto)', 
+    'ISB': 'Information security breach (Violação de segurança da informação)', 'ILP': 'Internal leakage - process medium (Vazamento interno - fluido de processo)', 
+    'EFA': 'Electronic failure (Falha eletrônica)', '2-RC': 'Recommendation (Recomendação)', 
+    '5-OK': 'OK (OK)', 'H000': 'Failed During Operation (Falhou durante operação)'
 }
 
-# --- Carregar o Modelo ---
+# --- 5. CARREGAR MODELO ---
 @st.cache_resource
 def carregar_modelo():
     try:
@@ -173,207 +130,197 @@ def carregar_modelo():
 
 artefatos = carregar_modelo()
 if artefatos is None:
-    st.error("ERRO: Arquivo 'modelo_classificacao_falhas.pkl' não encontrado.")
+    st.error("ERRO CRÍTICO: Arquivo 'modelo_classificacao_falhas.pkl' não encontrado.")
     st.stop()
 
 modelos = artefatos['modelos']
 encoders = artefatos['encoders']
 
-# --- LOGICA PRINCIPAL ---
-tab1, tab2, tab3, tab4 = st.tabs(["📝 Individual & Top 3", "🚀 Avaliação em Massa", "📊 Dashboard & Histórico", "📚 Dicionário"])
+# --- 6. ESTRUTURA DE ABAS ---
+tab1, tab2, tab3, tab4 = st.tabs(["📝 Classificador & Feedback", "🚀 Avaliação em Massa", "📊 Dashboard", "📚 Dicionário"])
 
-
-# === ABA 1: INDIVIDUAL + FEEDBACK ===
+# === ABA 1: CLASSIFICADOR INDIVIDUAL + FEEDBACK ===
 with tab1:
     col1, col2 = st.columns(2)
     with col1:
         tag = st.text_input("Tag", value="1298-31-PIT-0122")
     with col2:
         impacto = st.selectbox("Impacto", ['S', 'D', 'U', 'X', 'None'])
-    descricao = st.text_area("Descrição", height=80, placeholder="Ex: Vazamento no selo...")
-
-    # Variáveis para guardar o resultado da IA (para usar na correção depois)
-    if 'resultado_ia' not in st.session_state:
-        st.session_state.resultado_ia = None
+    descricao = st.text_area("Descrição da Falha", height=100)
 
     if st.button("Classificar", type="primary"):
         if not descricao:
-            st.warning("Insira uma descrição.")
+            st.warning("Digite uma descrição.")
         else:
+            # Processamento
             dados = pd.DataFrame({'Tag': [tag], 'FailureImp': [impacto], 'Description': [descricao]})
             dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
 
-            # --- Função de Previsão (Mesma de antes) ---
-            def get_top3(coluna, dic):
-                probs = modelos[coluna].predict_proba(dados)[0]
-                top3_idx = np.argsort(probs)[-3:][::-1]
-                resultados = []
-                for idx in top3_idx:
-                    codigo = encoders[coluna].inverse_transform([idx])[0]
-                    confianca = probs[idx]
-                    texto = dic.get(codigo, codigo)
-                    resultados.append((codigo, texto, confianca))
-                return resultados
+            # Função Helper
+            def get_top3(col, dic):
+                probs = modelos[col].predict_proba(dados)[0]
+                idxs = np.argsort(probs)[-3:][::-1]
+                res = []
+                for i in idxs:
+                    cod = encoders[col].inverse_transform([i])[0]
+                    conf = probs[i]
+                    txt = dic.get(cod, cod)
+                    res.append((cod, txt, conf))
+                return res
 
-            # Previsões
+            # Prever
             res_mode = get_top3('FailMode', map_mode)
             res_det = get_top3('DetMethod', map_det)
             res_mech = get_top3('FailMech', map_mech)
 
-            # Guardar no session state para o formulário de feedback usar
+            # Salvar no Estado para Feedback
             st.session_state.resultado_ia = {
                 'mode': res_mode[0][0],
                 'det': res_det[0][0],
                 'mech': res_mech[0][0]
             }
 
-            # Mostrar Resultados (Igual antes)
-            st.subheader("Resultados da IA")
+            # Salvar no Histórico do Dashboard
+            st.session_state.historico.append({
+                "Tag": tag, 
+                "Descrição": descricao,
+                "Modo": f"{res_mode[0][0]} - {res_mode[0][1]}",
+                "Modo_Cod": res_mode[0][0], # Guardar código puro para gráfico
+                "Detecção": f"{res_det[0][0]} - {res_det[0][1]}", 
+                "Mecanismo": f"{res_mech[0][0]} - {res_mech[0][1]}", 
+                "Confiança": res_mode[0][2],
+                "Status": "IA (Automático)"
+            })
+
+            # Mostrar
+            st.subheader("Resultados da IA:")
             c1, c2, c3 = st.columns(3)
             
-            def mostrar_top3(titulo, resultados, col_obj):
-                with col_obj:
-                    principal = resultados[0]
-                    st.metric(titulo, principal[0], delta=f"{principal[2]:.1%}", delta_color="off")
-                    st.caption(principal[1])
-                    with st.expander("Ver outras opções"):
-                        for i, (cod, txt, prob) in enumerate(resultados[1:]):
-                            st.markdown(f"**{i+2}º:** {cod} ({prob:.1%}) - {txt}")
-                            st.markdown("---")
+            def display_res(title, res_list, col):
+                with col:
+                    top = res_list[0]
+                    st.metric(title, top[0], delta=f"{top[2]:.1%}", delta_color="off")
+                    st.caption(top[1])
+                    with st.expander("Outras opções"):
+                        for item in res_list[1:]:
+                            st.markdown(f"**{item[0]}**: {item[2]:.1%} ({item[1]})")
+            
+            display_res("Modo de Falha", res_mode, c1)
+            display_res("Detecção", res_det, c2)
+            display_res("Mecanismo", res_mech, c3)
 
-            mostrar_top3("Modo de Falha", res_mode, c1)
-            mostrar_top3("Detecção", res_det, c2)
-            mostrar_top3("Mecanismo", res_mech, c3)
-
-    # --- ÁREA DE FEEDBACK / CORREÇÃO (NOVIDADE) ---
+    # --- ÁREA DE FEEDBACK ---
     st.markdown("---")
-    with st.expander("❌ A classificação está errada? Ensine a IA aqui!"):
-        st.info("Se a IA errou, selecione a opção correta abaixo e clique em salvar. Isso vai melhorar o modelo futuro.")
-        
+    with st.expander("❌ A classificação está errada? Corrigir aqui."):
         with st.form("form_feedback"):
-            # Pega listas de códigos para os dropdowns
-            lista_modos = list(map_mode.keys())
-            lista_dets = list(map_det.keys())
-            lista_mechs = list(map_mech.keys())
-            
-            # Tenta pré-selecionar o que a IA sugeriu (se houver)
-            idx_mode = 0
-            idx_det = 0
-            idx_mech = 0
-            
+            l_modos = list(map_mode.keys())
+            l_dets = list(map_det.keys())
+            l_mechs = list(map_mech.keys())
+
+            # Tenta achar indices atuais
+            i_m, i_d, i_me = 0, 0, 0
             if st.session_state.resultado_ia:
                 try:
-                    idx_mode = lista_modos.index(st.session_state.resultado_ia['mode'])
-                    idx_det = lista_dets.index(st.session_state.resultado_ia['det'])
-                    idx_mech = lista_mechs.index(st.session_state.resultado_ia['mech'])
-                except:
-                    pass # Se não achar, deixa o primeiro
-
-            # Dropdowns de correção
-            col_f1, col_f2, col_f3 = st.columns(3)
+                    i_m = l_modos.index(st.session_state.resultado_ia['mode'])
+                    i_d = l_dets.index(st.session_state.resultado_ia['det'])
+                    i_me = l_mechs.index(st.session_state.resultado_ia['mech'])
+                except: pass
             
-            # Mostra Código + Descrição no dropdown para facilitar
-            def format_func_mode(x): return f"{x} - {map_mode.get(x,'')}"
-            def format_func_det(x): return f"{x} - {map_det.get(x,'')}"
-            def format_func_mech(x): return f"{x} - {map_mech.get(x,'')}"
-
-            novo_modo = col_f1.selectbox("Modo Correto", lista_modos, index=idx_mode, format_func=format_func_mode)
-            novo_det = col_f2.selectbox("Detecção Correta", lista_dets, index=idx_det, format_func=format_func_det)
-            novo_mech = col_f3.selectbox("Mecanismo Correto", lista_mechs, index=idx_mech, format_func=format_func_mech)
-
-            submit_feedback = st.form_submit_button("💾 Salvar Aprendizado")
-
-            if submit_feedback:
-                # Cria um mini dataframe com a correção
-                df_feedback = pd.DataFrame({
-                    'Tag': [tag],
-                    'Description': [descricao],
-                    'FailureImp': [impacto],
-                    'FailMode': [novo_modo],
-                    'DetMethod': [novo_det],
-                    'FailMech': [novo_mech]
+            c_f1, c_f2, c_f3 = st.columns(3)
+            novo_mode = c_f1.selectbox("Modo Correto", l_modos, index=i_m, format_func=lambda x: f"{x} - {map_mode.get(x,'')}")
+            novo_det = c_f2.selectbox("Detecção Correta", l_dets, index=i_d, format_func=lambda x: f"{x} - {map_det.get(x,'')}")
+            novo_mech = c_f3.selectbox("Mecanismo Correto", l_mechs, index=i_me, format_func=lambda x: f"{x} - {map_mech.get(x,'')}")
+            
+            if st.form_submit_button("💾 Salvar Correção"):
+                # 1. Salvar no CSV de Treino
+                df_feed = pd.DataFrame({
+                    'Tag': [tag], 'Description': [descricao], 'FailureImp': [impacto],
+                    'FailMode': [novo_mode], 'DetMethod': [novo_det], 'FailMech': [novo_mech]
                 })
+                arq_feed = 'novos_dados_treino.csv'
+                header = not os.path.exists(arq_feed)
+                df_feed.to_csv(arq_feed, mode='a', header=header, index=False)
                 
-                # Salva num arquivo CSV separado (modo 'append' para não apagar os anteriores)
-                arquivo_feedback = 'novos_dados_treino.csv'
-                try:
-                    # Se arquivo não existe, cria com cabeçalho. Se existe, só adiciona linha.
-                    header = not joblib.os.path.exists(arquivo_feedback)
-                    df_feedback.to_csv(arquivo_feedback, mode='a', header=header, index=False)
-                    st.success(f"Obrigado! O exemplo foi salvo em '{arquivo_feedback}'. O modelo ficará mais esperto na próxima atualização.")
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+                # 2. Atualizar o Histórico do Dashboard (A Mágica!)
+                if len(st.session_state.historico) > 0:
+                    st.session_state.historico[-1]['Modo'] = f"{novo_mode} - {map_mode.get(novo_mode,'')}"
+                    st.session_state.historico[-1]['Modo_Cod'] = novo_mode
+                    st.session_state.historico[-1]['Detecção'] = f"{novo_det} - {map_det.get(novo_det,'')}"
+                    st.session_state.historico[-1]['Mecanismo'] = f"{novo_mech} - {map_mech.get(novo_mech,'')}"
+                    st.session_state.historico[-1]['Status'] = "Corrigido por Humano"
+                
+                st.success("Correção salva! O Dashboard foi atualizado e o modelo aprenderá isso no próximo treino.")
 
 # === ABA 2: EM MASSA ===
 with tab2:
-    st.markdown("### Upload de Arquivo CSV")
-    st.info("O arquivo deve ter pelo menos as colunas: `Tag`, `Description` e `FailureImp`.")
-    arquivo = st.file_uploader("Solte seu CSV aqui", type=["csv"])
+    st.markdown("### Upload de CSV")
+    upl = st.file_uploader("Arquivo (colunas: Tag, Description, FailureImp)", type=['csv'])
+    if upl:
+        df_up = pd.read_csv(upl)
+        if st.button("Processar Planilha"):
+            with st.spinner("Processando..."):
+                # Prepara
+                for c in ['Tag', 'Description', 'FailureImp']:
+                    if c not in df_up.columns: df_up[c] = ""
+                df_up['TEXTO_LIMPO'] = df_up['Description'].astype(str).apply(limpar_texto)
+                
+                # Prevê
+                p_mode = encoders['FailMode'].inverse_transform(modelos['FailMode'].predict(df_up))
+                p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
+                p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
+                
+                # Preenche
+                df_up['Modo_Cod'] = p_mode
+                df_up['Modo_Desc'] = [map_mode.get(x, x) for x in p_mode]
+                df_up['Det_Cod'] = p_det
+                df_up['Det_Desc'] = [map_det.get(x, x) for x in p_det]
+                df_up['Mech_Cod'] = p_mech
+                df_up['Mech_Desc'] = [map_mech.get(x, x) for x in p_mech]
+                
+                st.dataframe(df_up.head())
+                st.download_button("Baixar Resultado", df_up.to_csv(index=False).encode('utf-8'), "resultado.csv", "text/csv")
 
-    if arquivo:
-        df_upload = pd.read_csv(arquivo)
-        st.write(f"Carregado: {len(df_upload)} linhas.")
-        
-        if st.button("Processar Planilha Inteira"):
-            with st.spinner("Processando... (Isso é rápido!)"):
-                df_proc = df_upload.copy()
-                for col_nec in ['Tag', 'FailureImp', 'Description']:
-                     if col_nec not in df_proc.columns:
-                         df_proc[col_nec] = ""
-                
-                df_proc['TEXTO_LIMPO'] = df_proc['Description'].astype(str).apply(limpar_texto)
-                
-                # Previsões
-                p_num = modelos['FailMode'].predict(df_proc)
-                preds_mode = encoders['FailMode'].inverse_transform(p_num)
-                
-                p_num = modelos['DetMethod'].predict(df_proc)
-                preds_det = encoders['DetMethod'].inverse_transform(p_num)
-                
-                p_num = modelos['FailMech'].predict(df_proc)
-                preds_mech = encoders['FailMech'].inverse_transform(p_num)
-                
-                # Salvar no DF (Código e Descrição Traduzida)
-                df_proc['Cod_FailMode'] = preds_mode
-                df_proc['Desc_FailMode'] = [map_mode.get(x, x) for x in preds_mode]
-                
-                df_proc['Cod_DetMethod'] = preds_det
-                df_proc['Desc_DetMethod'] = [map_det.get(x, x) for x in preds_det]
-                
-                df_proc['Cod_FailMech'] = preds_mech
-                df_proc['Desc_FailMech'] = [map_mech.get(x, x) for x in preds_mech]
-
-                st.success("Processamento Concluído!")
-                st.dataframe(df_proc.head())
-                
-                csv_final = df_proc.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Baixar Planilha Preenchida", csv_final, "falhas_classificadas_traduzidas.csv", "text/csv")
-
-# === ABA 3: DASHBOARD ===
+# === ABA 3: DASHBOARD (CORRIGIDO) ===
 with tab3:
+    st.header("📊 Estatísticas da Sessão")
+    
+    # Verifica se há dados
     if len(st.session_state.historico) > 0:
-        df_h = pd.DataFrame(st.session_state.historico)
+        df_hist = pd.DataFrame(st.session_state.historico)
         
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            # Gráficos agora usarão a descrição traduzida que salvamos no histórico
-            fig1 = px.pie(df_h, names='Modo', title='Distribuição de Modos de Falha')
+        # Métricas de Topo
+        k1, k2, k3 = st.columns(3)
+        k1.metric("Total Analisado", len(df_hist))
+        k2.metric("Correções Humanas", len(df_hist[df_hist['Status'] == "Corrigido por Humano"]))
+        media_conf = df_hist[df_hist['Status'] == 'IA (Automático)']['Confiança'].mean()
+        k3.metric("Confiança Média IA", f"{media_conf:.1%}" if not pd.isna(media_conf) else "N/A")
+        
+        st.divider()
+        
+        # Gráficos
+        g1, g2 = st.columns(2)
+        with g1:
+            fig1 = px.pie(df_hist, names='Modo_Cod', title='Modos de Falha Mais Comuns')
             st.plotly_chart(fig1, use_container_width=True)
-        with col_g2:
-            fig2 = px.bar(df_h, x='Mecanismo', title='Contagem de Mecanismos')
+        with g2:
+            # Gráfico de Barras de Mecanismos (limpa o texto grande pra ficar bonito)
+            df_hist['Mech_Short'] = df_hist['Mecanismo'].apply(lambda x: x.split(' - ')[0])
+            fig2 = px.bar(df_hist, x='Mech_Short', title='Contagem de Mecanismos', color='Status')
             st.plotly_chart(fig2, use_container_width=True)
             
-        st.dataframe(df_h, use_container_width=True)
+        st.markdown("### Histórico Detalhado")
+        st.dataframe(df_hist, use_container_width=True)
+        
+        # Download do Histórico da Sessão
+        st.download_button("📥 Baixar Histórico da Sessão", df_hist.to_csv(index=False).encode('utf-8'), "historico_sessao.csv", "text/csv")
+        
     else:
-        st.info("Use a aba 'Individual' para gerar dados para o Dashboard.")
+        st.info("⚠️ O Dashboard está vazio porque você ainda não classificou nada nesta sessão.")
+        st.markdown("Vá até a aba **'Classificador & Feedback'** e faça uma análise para ver os dados aparecerem aqui.")
 
 # === ABA 4: DICIONÁRIO ===
 with tab4:
-    st.markdown("### Consulta de Códigos e Traduções")
-    with st.expander("Modos de Falha (Failure Mode)"):
-        st.table(pd.DataFrame(list(map_mode.items()), columns=['Código', 'Descrição (EN/PT)']))
-    with st.expander("Mecanismos (Failure Mechanism)"):
-        st.table(pd.DataFrame(list(map_mech.items()), columns=['Código', 'Descrição (EN/PT)']))
-    with st.expander("Detecção (Detection Method)"):
-        st.table(pd.DataFrame(list(map_det.items()), columns=['Código', 'Descrição (EN/PT)']))
-
+    st.markdown("### Consulta de Códigos")
+    with st.expander("Modos de Falha"): st.table(pd.DataFrame(list(map_mode.items()), columns=['Cod', 'Desc']))
+    with st.expander("Mecanismos"): st.table(pd.DataFrame(list(map_mech.items()), columns=['Cod', 'Desc']))
+    with st.expander("Detecção"): st.table(pd.DataFrame(list(map_det.items()), columns=['Cod', 'Desc']))
