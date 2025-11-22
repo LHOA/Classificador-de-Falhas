@@ -39,17 +39,17 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# --- 4. DICIONÁRIOS ---
+# --- 4. DICIONÁRIOS (TRADUZIDOS) ---
 
-# NOVO: Mapeamento de Impacto (Visual -> Código do Modelo)
+# Mapeamento do Frontend (Menu) para o Código do Modelo
 map_impacto_frontend = {
     "D - Falha Crítica (Dead)": "D",
     "S - Falha Degradada (Degraded)": "S",
     "U - Falha Incipiente (Unwell)": "U",
-    "Outros (X / None)": "X"  # Agrupa X e None como X para o modelo
+    "Outros (X / None)": "X"
 }
 
-# Dicionários de Tradução (Modo, Mecanismo, Detecção)
+# Dicionários Completos (Código -> Descrição Traduzida)
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -154,22 +154,17 @@ with tab1:
     with col1:
         tag = st.text_input("Tag", value="1298-31-PIT-0122")
     
-    # --- NOVO SELETOR DE IMPACTO COM DESCRIÇÕES ---
     with col2:
-        # Pega as chaves (os nomes bonitos) para mostrar no menu
         opcoes_impacto = list(map_impacto_frontend.keys())
         impacto_selecionado = st.selectbox("Impacto da Falha (FailureImp)", opcoes_impacto)
-        
-        # Converte o nome bonito de volta para o código (D, S, U, X) para a IA
         codigo_impacto = map_impacto_frontend[impacto_selecionado]
 
-    # --- ÁREA DE AJUDA / DEFINIÇÕES ---
-    with st.expander("ℹ️ Entenda os Tipos de Impacto (Clique para ver)", expanded=False):
+    with st.expander("ℹ️ Entenda os Tipos de Impacto", expanded=False):
         st.markdown("""
-        * 🔴 **D - Falha Crítica (Dead):** Cessa a função fundamental. Ex: Bomba travada.
-        * 🟠 **S - Falha Degradada (Serious):** Reduz desempenho ou afeta função secundária. Ex: Baixa vazão.
-        * 🟡 **U - Falha Incipiente (Unwell):** Imperfeição que pode evoluir. Ex: Partículas no óleo.
-        * ⚪ **Outros:** Falhas que não se enquadram ou sem classificação clara (X/None).
+        * 🔴 **D - Falha Crítica (Dead):** Cessa a função fundamental.
+        * 🟠 **S - Falha Degradada (Serious):** Reduz desempenho ou afeta função secundária.
+        * 🟡 **U - Falha Incipiente (Unwell):** Imperfeição que pode evoluir.
+        * ⚪ **Outros:** Falhas que não se enquadram ou indefinidas (X/None).
         """)
 
     descricao = st.text_area("Descrição da Falha", height=100)
@@ -178,15 +173,14 @@ with tab1:
         if not descricao:
             st.warning("Digite uma descrição.")
         else:
-            # Processamento
             dados = pd.DataFrame({
                 'Tag': [tag], 
-                'FailureImp': [codigo_impacto], # Usa o código interno (D, S, U, X)
+                'FailureImp': [codigo_impacto],
                 'Description': [descricao]
             })
             dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
 
-            # Função Helper
+            # Função Helper para Top 3
             def get_top3(col, dic):
                 probs = modelos[col].predict_proba(dados)[0]
                 idxs = np.argsort(probs)[-3:][::-1]
@@ -198,43 +192,53 @@ with tab1:
                     res.append((cod, txt, conf))
                 return res
 
-            # Prever
             res_mode = get_top3('FailMode', map_mode)
             res_det = get_top3('DetMethod', map_det)
             res_mech = get_top3('FailMech', map_mech)
 
-            # Salvar no Estado para Feedback
             st.session_state.resultado_ia = {
                 'mode': res_mode[0][0],
                 'det': res_det[0][0],
                 'mech': res_mech[0][0]
             }
 
-            # Salvar no Histórico do Dashboard
+            # Formatação para o Histórico: "CÓDIGO - Descrição"
+            txt_mode_completo = f"{res_mode[0][0]} - {res_mode[0][1]}"
+            txt_det_completo = f"{res_det[0][0]} - {res_det[0][1]}"
+            txt_mech_completo = f"{res_mech[0][0]} - {res_mech[0][1]}"
+
             st.session_state.historico.append({
                 "Tag": tag, 
                 "Descrição": descricao,
-                "Impacto": impacto_selecionado, # Salva o nome bonito no histórico
-                "Modo": f"{res_mode[0][0]} - {res_mode[0][1]}",
+                "Impacto": impacto_selecionado,
+                "Modo": txt_mode_completo,
                 "Modo_Cod": res_mode[0][0],
-                "Detecção": f"{res_det[0][0]} - {res_det[0][1]}", 
-                "Mecanismo": f"{res_mech[0][0]} - {res_mech[0][1]}", 
+                "Detecção": txt_det_completo, 
+                "Mecanismo": txt_mech_completo, 
                 "Confiança": res_mode[0][2],
                 "Status": "IA (Automático)"
             })
 
-            # Mostrar
+            # --- EXIBIÇÃO DOS RESULTADOS (FORMATO NOVO) ---
             st.subheader("Resultados da IA:")
             c1, c2, c3 = st.columns(3)
             
             def display_res(title, res_list, col):
                 with col:
                     top = res_list[0]
-                    st.metric(title, top[0], delta=f"{top[2]:.1%}", delta_color="off")
-                    st.caption(top[1])
+                    # Formato: CÓDIGO - Descrição (Tradução)
+                    texto_final = f"{top[0]} - {top[1]}"
+                    
+                    st.markdown(f"###### {title}")
+                    # Usa st.success para destacar bem o texto completo
+                    st.success(texto_final)
+                    st.progress(top[2], text=f"Confiança: {top[2]:.1%}")
+                    
                     with st.expander("Outras opções"):
                         for item in res_list[1:]:
-                            st.markdown(f"**{item[0]}**: {item[2]:.1%} ({item[1]})")
+                            # Mostra as outras opções também no formato completo
+                            st.markdown(f"**{item[0]}**: {item[2]:.1%} - {item[1]}")
+                            st.divider()
             
             display_res("Modo de Falha", res_mode, c1)
             display_res("Detecção", res_det, c2)
@@ -257,12 +261,12 @@ with tab1:
                 except: pass
             
             c_f1, c_f2, c_f3 = st.columns(3)
+            # Dropdowns também mostram CÓDIGO - Descrição
             novo_mode = c_f1.selectbox("Modo Correto", l_modos, index=i_m, format_func=lambda x: f"{x} - {map_mode.get(x,'')}")
             novo_det = c_f2.selectbox("Detecção Correta", l_dets, index=i_d, format_func=lambda x: f"{x} - {map_det.get(x,'')}")
             novo_mech = c_f3.selectbox("Mecanismo Correto", l_mechs, index=i_me, format_func=lambda x: f"{x} - {map_mech.get(x,'')}")
             
             if st.form_submit_button("💾 Salvar Correção"):
-                # Salvar (Usando o código interno de impacto para manter consistência no treino)
                 df_feed = pd.DataFrame({
                     'Tag': [tag], 'Description': [descricao], 'FailureImp': [codigo_impacto],
                     'FailMode': [novo_mode], 'DetMethod': [novo_det], 'FailMech': [novo_mech]
@@ -285,7 +289,6 @@ with tab2:
     st.markdown("### Upload de CSV")
     st.info("O CSV deve conter as colunas: `Tag`, `Description`, `FailureImp`.")
     
-    # Adicionei um seletor caso o automático falhe
     separador_manual = st.selectbox("Separador do arquivo:", [", (Vírgula - Padrão)", "; (Ponto e Vírgula - Excel BR)"], index=0)
     sep_char = "," if separador_manual.startswith(",") else ";"
     
@@ -293,58 +296,40 @@ with tab2:
     
     if upl:
         try:
-            # Tenta ler com o separador escolhido
-            # 'on_bad_lines=skip' pula linhas quebradas em vez de travar o app
-            # 'engine=python' é mais robusto para detectar aspas
             df_up = pd.read_csv(upl, sep=sep_char, on_bad_lines='warn', engine='python')
-            
             st.success(f"Arquivo carregado! {len(df_up)} linhas detectadas.")
             
-            # Verifica colunas necessárias
             colunas_ok = True
             for c in ['Tag', 'Description', 'FailureImp']:
                 if c not in df_up.columns:
-                    st.error(f"❌ Coluna '{c}' não encontrada no arquivo. Verifique se o separador está correto.")
+                    st.error(f"❌ Coluna '{c}' não encontrada.")
                     colunas_ok = False
             
             if colunas_ok:
                 if st.button("Processar Planilha"):
-                    with st.spinner("A IA está lendo linha por linha..."):
-                        
-                        # Limpeza e Tratamento de Nulos
+                    with st.spinner("Processando..."):
                         df_up['FailureImp'] = df_up['FailureImp'].fillna('X')
                         df_up['Description'] = df_up['Description'].fillna('')
                         df_up['Tag'] = df_up['Tag'].fillna('N/A')
-                        
                         df_up['TEXTO_LIMPO'] = df_up['Description'].astype(str).apply(limpar_texto)
                         
-                        # Previsões
                         p_mode = encoders['FailMode'].inverse_transform(modelos['FailMode'].predict(df_up))
                         p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
                         p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
                         
-                        # Preenche Resultados
-                        df_up['Modo_Cod'] = p_mode
-                        df_up['Modo_Desc'] = [map_mode.get(x, x) for x in p_mode]
-                        df_up['Det_Cod'] = p_det
-                        df_up['Det_Desc'] = [map_det.get(x, x) for x in p_det]
-                        df_up['Mech_Cod'] = p_mech
-                        df_up['Mech_Desc'] = [map_mech.get(x, x) for x in p_mech]
+                        # Preenche Resultados formatados CÓDIGO - DESCRIÇÃO
+                        df_up['Modo'] = [f"{x} - {map_mode.get(x, x)}" for x in p_mode]
+                        df_up['Deteccao'] = [f"{x} - {map_det.get(x, x)}" for x in p_det]
+                        df_up['Mecanismo'] = [f"{x} - {map_mech.get(x, x)}" for x in p_mech]
                         
-                        st.dataframe(df_up.head())
+                        st.dataframe(df_up[['Tag', 'Modo', 'Deteccao', 'Mecanismo']].head())
                         
-                        # Download
-                        csv_final = df_up.to_csv(index=False, sep=';').encode('utf-8') # Exporta com ; para abrir fácil no Excel BR
-                        st.download_button(
-                            label="📥 Baixar Resultado (Excel BR)", 
-                            data=csv_final, 
-                            file_name="resultado_classificado.csv", 
-                            mime="text/csv"
-                        )
+                        csv_final = df_up.to_csv(index=False, sep=';').encode('utf-8')
+                        st.download_button("📥 Baixar Resultado (Excel BR)", csv_final, "resultado_classificado.csv", "text/csv")
                         
         except Exception as e:
-            st.error("Erro ao ler o arquivo. Tente mudar o 'Separador' ali em cima para Ponto e Vírgula (;).")
-            st.error(f"Detalhe técnico: {e}")
+            st.error(f"Erro ao ler arquivo: {e}")
+
 # === ABA 3: DASHBOARD ===
 with tab3:
     st.header("📊 Estatísticas da Sessão")
@@ -367,7 +352,7 @@ with tab3:
             st.plotly_chart(fig2, use_container_width=True)
             
         st.dataframe(df_hist, use_container_width=True)
-        st.download_button("📥 Baixar Histórico", df_hist.to_csv(index=False).encode('utf-8'), "historico_sessao.csv", "text/csv")
+        st.download_button("📥 Baixar Histórico", df_hist.to_csv(index=False, sep=';').encode('utf-8'), "historico_sessao.csv", "text/csv")
     else:
         st.info("⚠️ O Dashboard está vazio. Classifique algo na aba 1 para ver os dados.")
 
@@ -377,4 +362,3 @@ with tab4:
     with st.expander("Modos de Falha"): st.table(pd.DataFrame(list(map_mode.items()), columns=['Cod', 'Desc']))
     with st.expander("Mecanismos"): st.table(pd.DataFrame(list(map_mech.items()), columns=['Cod', 'Desc']))
     with st.expander("Detecção"): st.table(pd.DataFrame(list(map_det.items()), columns=['Cod', 'Desc']))
-
