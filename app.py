@@ -11,7 +11,7 @@ import plotly.express as px
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Classificador de Falhas Pro", layout="wide")
-st.title("🔧 Classificador de Falhas - ISO 14224 - V1")
+st.title("🔧 Classificador de Falhas - ISO 14224 - v1.0")
 
 # --- 2. INICIALIZAR MEMÓRIA ---
 if 'historico' not in st.session_state:
@@ -40,14 +40,12 @@ def limpar_texto(texto):
     return texto
 
 # --- 4. DICIONÁRIOS (TRADUZIDOS) ---
-
 map_impacto_frontend = {
     "D - Falha Crítica (Dead)": "D",
     "S - Falha Degradada (Degraded)": "S",
     "U - Falha Incipiente (Unwell)": "U",
     "Outros (X / None)": "X"
 }
-# Cria o inverso para usar na importação em massa (D -> D - Falha Crítica...)
 map_impacto_backend = {v: k for k, v in map_impacto_frontend.items()}
 
 map_mech = {
@@ -152,7 +150,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📝 Classificador & Feedback", "🚀 Avalia�
 with tab1:
     col1, col2 = st.columns(2)
     with col1:
-        tag = st.text_input("Tag", value="Bomba 1234-B-5")
+        tag = st.text_input("Tag", value="Bomba 1234-B-456")
     with col2:
         opcoes_impacto = list(map_impacto_frontend.keys())
         impacto_selecionado = st.selectbox("Impacto da Falha (FailureImp)", opcoes_impacto)
@@ -255,10 +253,10 @@ with tab1:
                     st.session_state.historico[-1]['Detecção'] = f"{novo_det} - {map_det.get(novo_det,'')}"
                     st.session_state.historico[-1]['Mecanismo'] = f"{novo_mech} - {map_mech.get(novo_mech,'')}"
                     st.session_state.historico[-1]['Status'] = "Corrigido por Humano"
-                    st.session_state.historico[-1]['Confiança'] = 1.0 # Correção humana = 100% confiança
+                    st.session_state.historico[-1]['Confiança'] = 1.0 
                 st.success("Correção salva!")
 
-# === ABA 2: EM MASSA (COM INTEGRAÇÃO AO DASHBOARD) ===
+# === ABA 2: EM MASSA (COM CORREÇÃO DE CODIFICAÇÃO) ===
 with tab2:
     st.markdown("### Upload de CSV")
     st.info("Colunas: `Tag`, `Description`, `FailureImp`.")
@@ -269,7 +267,16 @@ with tab2:
     
     if upl:
         try:
-            df_up = pd.read_csv(upl, sep=sep_char, on_bad_lines='warn', engine='python')
+            # --- CORREÇÃO DE CODIFICAÇÃO AQUI ---
+            try:
+                # Tenta UTF-8 primeiro (Padrão)
+                df_up = pd.read_csv(upl, sep=sep_char, on_bad_lines='warn', engine='python', encoding='utf-8')
+            except UnicodeDecodeError:
+                # Se falhar (Erro 0xE2...), reseta o arquivo e tenta Latin-1 (Excel)
+                upl.seek(0) 
+                df_up = pd.read_csv(upl, sep=sep_char, on_bad_lines='warn', engine='python', encoding='latin1')
+            # ------------------------------------
+
             st.success(f"{len(df_up)} linhas carregadas.")
             
             colunas_ok = True
@@ -289,7 +296,6 @@ with tab2:
                         p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
                         p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
                         
-                        # Mapeia resultados
                         df_up['Modo'] = [f"{x} - {map_mode.get(x, x)}" for x in p_mode]
                         df_up['Deteccao'] = [f"{x} - {map_det.get(x, x)}" for x in p_det]
                         df_up['Mecanismo'] = [f"{x} - {map_mech.get(x, x)}" for x in p_mech]
@@ -297,25 +303,22 @@ with tab2:
                         st.dataframe(df_up.head())
                         st.download_button("Baixar CSV", df_up.to_csv(index=False, sep=';').encode('utf-8'), "resultado.csv", "text/csv")
 
-                        # --- BOTÃO MÁGICO: ADICIONAR AO DASHBOARD ---
                         st.markdown("---")
                         if st.button("📊 Adicionar esses dados ao Dashboard de Análise"):
                             novos_itens = []
                             for idx, row in df_up.iterrows():
-                                # Tenta converter o código curto (D) para o Longo (D - Crítica)
                                 imp_long = map_impacto_backend.get(row['FailureImp'], "Outros (X / None)")
-                                
                                 novos_itens.append({
                                     "Tag": row['Tag'], "Descrição": row['Description'], "Impacto": imp_long,
                                     "Modo": row['Modo'], "Modo_Cod": p_mode[idx],
                                     "Detecção": row['Deteccao'], "Mecanismo": row['Mecanismo'],
-                                    "Confiança": 0.90, # Valor fixo estimado para batch
+                                    "Confiança": 0.90, 
                                     "Status": "IA (Em Massa)"
                                 })
                             st.session_state.historico.extend(novos_itens)
-                            st.success(f"{len(novos_itens)} itens adicionados ao Dashboard! Vá para a aba 'Dashboard' para analisar.")
+                            st.success(f"{len(novos_itens)} itens adicionados ao Dashboard!")
 
-        except Exception as e: st.error(f"Erro: {e}")
+        except Exception as e: st.error(f"Erro na leitura: {e}")
 
 # === ABA 3: DASHBOARD ULTIMATE ===
 with tab3:
@@ -324,7 +327,6 @@ with tab3:
     if len(st.session_state.historico) > 0:
         df = pd.DataFrame(st.session_state.historico)
         
-        # --- FILTROS ---
         st.markdown("##### 🔎 Filtros Globais")
         c_f1, c_f2 = st.columns(2)
         filtro_impacto = c_f1.multiselect("Filtrar por Impacto", options=df['Impacto'].unique(), default=df['Impacto'].unique())
@@ -335,7 +337,6 @@ with tab3:
         if df_filtered.empty:
             st.warning("Nenhum dado encontrado com esses filtros.")
         else:
-            # --- KPIS ---
             k1, k2, k3, k4 = st.columns(4)
             k1.metric("Falhas Analisadas", len(df_filtered))
             n_critical = len(df_filtered[df_filtered['Impacto'].str.contains('Crítica', na=False)])
@@ -350,17 +351,10 @@ with tab3:
             
             st.divider()
             
-            # --- LINHA 1: SUNBURST & TREEMAP ---
             g1, g2 = st.columns(2)
             with g1:
                 st.subheader("Hierarquia: Impacto ➝ Modo")
-                # Cores personalizadas para os impactos
-                cores_impacto = {
-                    'D - Falha Crítica (Dead)': '#ff4b4b', 
-                    'S - Falha Degradada (Serious)': '#ffa421', 
-                    'U - Falha Incipiente (Unwell)': '#ffe312', 
-                    'Outros (X / None)': '#808495'
-                }
+                cores_impacto = {'D - Falha Crítica (Dead)': '#ff4b4b', 'S - Falha Degradada (Serious)': '#ffa421', 'U - Falha Incipiente (Unwell)': '#ffe312', 'Outros (X / None)': '#808495'}
                 fig_sun = px.sunburst(
                     df_filtered, path=['Impacto', 'Modo_Cod'], 
                     title='Distribuição de Falhas (Impacto > Sigla Modo)',
@@ -370,7 +364,6 @@ with tab3:
                 
             with g2:
                 st.subheader("Mapa de Calor: Mecanismos")
-                # Limpa o nome para o gráfico (remove o código numérico)
                 df_filtered['Mech_Clean'] = df_filtered['Mecanismo'].apply(lambda x: str(x).split(' - ', 1)[1] if ' - ' in str(x) else str(x))
                 counts_mech = df_filtered['Mech_Clean'].value_counts().reset_index()
                 counts_mech.columns = ['Mecanismo', 'Contagem']
@@ -381,7 +374,6 @@ with tab3:
                 )
                 st.plotly_chart(fig_tree, use_container_width=True)
             
-            # --- LINHA 2: TOP EQUIPMENT & DETECÇÃO ---
             g3, g4 = st.columns(2)
             with g3:
                 st.subheader("🚨 Top 5 Equipamentos Críticos")
@@ -394,22 +386,16 @@ with tab3:
             with g4:
                 st.subheader("Métodos de Detecção")
                 df_filtered['Det_Clean'] = df_filtered['Detecção'].apply(lambda x: str(x).split(' - ', 1)[1] if ' - ' in str(x) else str(x))
-                # Conta para ordenar bonito
                 det_counts = df_filtered['Det_Clean'].value_counts().reset_index()
                 det_counts.columns = ['Metodo', 'Qtd']
                 fig_det = px.bar(det_counts, x='Metodo', y='Qtd', title='Detecção (Nome Completo)')
                 st.plotly_chart(fig_det, use_container_width=True)
             
-            # --- TABELA FINAL ---
             st.subheader("📋 Tabela Detalhada")
             st.dataframe(
                 df_filtered[['Tag', 'Impacto', 'Modo', 'Mecanismo', 'Status', 'Confiança']], 
                 use_container_width=True,
-                column_config={
-                    "Confiança": st.column_config.ProgressColumn(
-                        "Confiança IA", format="%.2f", min_value=0, max_value=1,
-                    ),
-                }
+                column_config={"Confiança": st.column_config.ProgressColumn("Confiança IA", format="%.2f", min_value=0, max_value=1)}
             )
             st.download_button("📥 Exportar Dados Filtrados", df_filtered.to_csv(index=False, sep=';').encode('utf-8'), "dashboard_completo.csv", "text/csv")
 
@@ -422,4 +408,3 @@ with tab4:
     with st.expander("Modos de Falha"): st.table(pd.DataFrame(list(map_mode.items()), columns=['Cod', 'Desc']))
     with st.expander("Mecanismos"): st.table(pd.DataFrame(list(map_mech.items()), columns=['Cod', 'Desc']))
     with st.expander("Detecção"): st.table(pd.DataFrame(list(map_det.items()), columns=['Cod', 'Desc']))
-
