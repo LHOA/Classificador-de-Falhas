@@ -226,11 +226,8 @@ with tab1:
                     st.markdown(f"###### {title}")
                     st.success(texto_final)
                     
-                    # --- CORREÇÃO DO ERRO AQUI ---
-                    # Convertemos top[2] (que é float32) para float do Python
                     confianca_valor = float(top[2])
                     st.progress(confianca_valor, text=f"Confiança: {confianca_valor:.1%}")
-                    # -----------------------------
                     
                     with st.expander("Outras opções"):
                         for item in res_list[1:]:
@@ -325,7 +322,7 @@ with tab2:
         except Exception as e:
             st.error(f"Erro ao ler arquivo: {e}")
 
-# === ABA 3: DASHBOARD ===
+# === ABA 3: DASHBOARD ATUALIZADO ===
 with tab3:
     st.header("📊 Estatísticas da Sessão")
     if len(st.session_state.historico) > 0:
@@ -333,18 +330,62 @@ with tab3:
         k1, k2, k3 = st.columns(3)
         k1.metric("Total Analisado", len(df_hist))
         k2.metric("Correções Humanas", len(df_hist[df_hist['Status'] == "Corrigido por Humano"]))
-        media_conf = df_hist[df_hist['Status'] == 'IA (Automático)']['Confiança'].mean()
-        k3.metric("Confiança Média IA", f"{media_conf:.1%}" if not pd.isna(media_conf) else "N/A")
+        
+        conf_media = df_hist[df_hist['Status'] == 'IA (Automático)']['Confiança'].mean()
+        # Correção para evitar NaN se não houver dados automáticos
+        k3.metric("Confiança Média IA", f"{float(conf_media):.1%}" if not pd.isna(conf_media) else "N/A")
         
         st.divider()
-        g1, g2 = st.columns(2)
-        with g1:
-            fig1 = px.pie(df_hist, names='Modo_Cod', title='Modos de Falha Mais Comuns')
-            st.plotly_chart(fig1, use_container_width=True)
-        with g2:
-            df_hist['Mech_Short'] = df_hist['Mecanismo'].apply(lambda x: x.split(' - ')[0])
-            fig2 = px.bar(df_hist, x='Mech_Short', title='Contagem de Mecanismos', color='Status')
-            st.plotly_chart(fig2, use_container_width=True)
+        
+        # Prepara funções auxiliares para limpar nomes
+        def get_desc(x):
+            # Pega só a parte depois do " - "
+            parts = str(x).split(' - ', 1)
+            return parts[1] if len(parts) > 1 else x
+
+        df_hist['Mech_Desc_Only'] = df_hist['Mecanismo'].apply(get_desc)
+        df_hist['Det_Desc_Only'] = df_hist['Detecção'].apply(get_desc)
+
+        # GRÁFICO 1: MODO DE FALHA (SIGLAS)
+        c_g1, c_g2 = st.columns(2)
+        with c_g1:
+            fig_mode = px.pie(
+                df_hist, 
+                names='Modo_Cod', 
+                title='Modo de Falha (Por Sigla)', 
+                hole=0.4
+            )
+            st.plotly_chart(fig_mode, use_container_width=True)
+
+        # GRÁFICO 2: MECANISMO (NOME COMPLETO)
+        with c_g2:
+            # Agrupa para ordenar melhor
+            mech_counts = df_hist['Mech_Desc_Only'].value_counts().reset_index()
+            mech_counts.columns = ['Mecanismo', 'Contagem']
+            
+            fig_mech = px.bar(
+                mech_counts, 
+                x='Contagem', 
+                y='Mecanismo', 
+                orientation='h', 
+                title='Mecanismo de Falha (Nome Completo)',
+                text='Contagem'
+            )
+            fig_mech.update_layout(yaxis={'categoryorder':'total ascending'}) 
+            st.plotly_chart(fig_mech, use_container_width=True)
+
+        # GRÁFICO 3: DETECÇÃO (NOME COMPLETO)
+        det_counts = df_hist['Det_Desc_Only'].value_counts().reset_index()
+        det_counts.columns = ['Metodo', 'Contagem']
+        
+        fig_det = px.bar(
+            det_counts, 
+            x='Metodo', 
+            y='Contagem', 
+            title='Método de Detecção (Nome Completo)',
+            text='Contagem'
+        )
+        st.plotly_chart(fig_det, use_container_width=True)
             
         st.dataframe(df_hist, use_container_width=True)
         st.download_button("📥 Baixar Histórico", df_hist.to_csv(index=False, sep=';').encode('utf-8'), "historico_sessao.csv", "text/csv")
