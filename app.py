@@ -4,19 +4,38 @@ import joblib
 import re
 import nltk
 import xgboost
+import numpy as np
 from nltk.corpus import stopwords
 
 # --- Configuração da Página ---
-st.set_page_config(page_title="Classificador de Falhas", layout="centered")
-st.title("🔧 Classificador de Falhas")
+st.set_page_config(page_title="Classificador de Falhas", layout="wide") # Mudei para wide para caber a tabela
+st.title("🔧 Classificador de Falhas Inteligente")
 
-# --- Diagnóstico de Carregamento ---
-status_text = st.empty()
-status_text.text("Carregando bibliotecas e modelo...")
+# --- Inicializar Histórico (Session State) ---
+if 'historico' not in st.session_state:
+    st.session_state.historico = []
 
-# --- Dicionários de Tradução (Baseados nas suas listas) ---
+# --- Funções Auxiliares e Dicionários ---
+@st.cache_resource
+def configurar_nltk():
+    try:
+        nltk.data.find('corpora/stopwords')
+    except LookupError:
+        nltk.download('stopwords')
+    return set(stopwords.words('portuguese'))
 
-# Mapeamento: Código -> Descrição (Failure Mechanism)
+stop_words = configurar_nltk()
+
+def limpar_texto(texto):
+    if not isinstance(texto, str):
+        return ""
+    texto = texto.lower()
+    texto = re.sub(r'\d+', '', texto)
+    texto = re.sub(r'[^\w\s]', '', texto)
+    texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
+    return texto
+
+# --- Dicionários (Mesmos de antes) ---
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -48,7 +67,6 @@ map_mech = {
     '6.3': 'Other (Outro)', '6.4': 'Unknown (Desconhecido)', '6.5': 'Deviation from design (Desvio de projeto)'
 }
 
-# Mapeamento: Código -> Descrição (Detection Method)
 map_det = {
     '1': 'Periodic maintenance', '2': 'Functional testing', '3': 'Inspection', 
     '4': 'Periodic condition monitoring', '5': 'Continuous condition monitoring', 
@@ -56,7 +74,6 @@ map_det = {
     '9': 'On demand', '10': 'Other'
 }
 
-# Mapeamento: Código -> Descrição (Failure Mode - Simplificado dos dados extraídos)
 map_mode = {
     'OTH': 'Other / Outros', 'ELP': 'External leakage - process medium', 'BRD': 'Breakdown', 
     'ELU': 'External leakage - utility medium', 'FTI': 'Failure to function as intended', 
@@ -86,26 +103,6 @@ map_mode = {
     'EFA': 'Electronic failure', '2-RC': 'Recommendation', '5-OK': 'OK', 'H000': 'Failed During Operation'
 }
 
-# --- Funções Auxiliares ---
-@st.cache_resource
-def configurar_nltk():
-    try:
-        nltk.data.find('corpora/stopwords')
-    except LookupError:
-        nltk.download('stopwords')
-    return set(stopwords.words('portuguese'))
-
-stop_words = configurar_nltk()
-
-def limpar_texto(texto):
-    if not isinstance(texto, str):
-        return ""
-    texto = texto.lower()
-    texto = re.sub(r'\d+', '', texto)
-    texto = re.sub(r'[^\w\s]', '', texto)
-    texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
-    return texto
-
 # --- Carregar o Modelo ---
 @st.cache_resource
 def carregar_modelo():
@@ -116,69 +113,117 @@ def carregar_modelo():
 
 artefatos = carregar_modelo()
 
-# Verifica se carregou corretamente
 if artefatos is None:
-    status_text.error("ERRO: Arquivo 'modelo_classificacao_falhas.pkl' não encontrado.")
+    st.error("ERRO: Arquivo 'modelo_classificacao_falhas.pkl' não encontrado.")
     st.stop()
 
 modelos = artefatos['modelos']
 encoders = artefatos['encoders']
 
-status_text.text("Sistema pronto!")
-status_text.empty() 
+# --- CRIAÇÃO DAS ABAS (NOVIDADE) ---
+tab1, tab2, tab3 = st.tabs(["📝 Classificador", "🗃️ Histórico & Download", "📖 Dicionário de Códigos"])
 
-# --- Interface ---
-st.markdown("### Dados da Falha")
+# === ABA 1: CLASSIFICADOR ===
+with tab1:
+    col1, col2 = st.columns(2)
+    with col1:
+        tag = st.text_input("Tag do Equipamento", value="1298-31-PIT-0122")
+    with col2:
+        impacto = st.selectbox("Impacto (FailureImp)", ['S', 'D', 'U', 'X', 'None'])
 
-col1, col2 = st.columns(2)
-with col1:
-    tag = st.text_input("Tag do Equipamento", value="1298-31-PIT-0122")
-with col2:
-    impacto = st.selectbox("Impacto (FailureImp)", ['S', 'D', 'U', 'X', 'None'])
+    descricao = st.text_area("Descrição da Falha", height=100, placeholder="Descreva o problema aqui...")
 
-descricao = st.text_area("Descrição da Falha", height=100, placeholder="Descreva o problema aqui...")
-
-# Botão de ação
-if st.button("Classificar Agora", type="primary"):
-    if not descricao:
-        st.warning("⚠️ Por favor, escreva uma descrição antes de classificar.")
-    else:
-        with st.spinner('Analisando...'):
-            # 1. Preparar DataFrame
-            dados = pd.DataFrame({
-                'Tag': [tag],
-                'FailureImp': [impacto],
-                'Description': [descricao]
-            })
-            dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
-
-            # 2. Fazer Previsões
-            st.markdown("---")
-            st.subheader("🔍 Resultados da IA:")
-            
-            r_col1, r_col2, r_col3 = st.columns(3)
-
-            # Helper para prever e traduzir
-            def prever_e_traduzir(coluna_alvo, dicionario):
-                # Previsão numérica do modelo
-                pred_num = modelos[coluna_alvo].predict(dados)
-                # Converte número de volta para o código original (ex: 0 -> '1.1')
-                codigo_original = encoders[coluna_alvo].inverse_transform(pred_num)[0]
-                # Procura a descrição no dicionário. Se não achar, mostra só o código
-                descricao_texto = dicionario.get(codigo_original, codigo_original)
+    if st.button("Classificar Agora", type="primary"):
+        if not descricao:
+            st.warning("⚠️ Por favor, escreva uma descrição antes de classificar.")
+        else:
+            with st.spinner('Analisando...'):
+                dados = pd.DataFrame({
+                    'Tag': [tag],
+                    'FailureImp': [impacto],
+                    'Description': [descricao]
+                })
+                dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
                 
-                return codigo_original, descricao_texto
+                # Função auxiliar que retorna código, descrição E PROBABILIDADE (confiança)
+                def prever_completo(coluna_alvo, dicionario):
+                    # Previsão da classe
+                    pred_num = modelos[coluna_alvo].predict(dados)
+                    codigo = encoders[coluna_alvo].inverse_transform(pred_num)[0]
+                    texto = dicionario.get(codigo, codigo)
+                    
+                    # Previsão da Probabilidade (Confiança)
+                    probs = modelos[coluna_alvo].predict_proba(dados)
+                    confianca = np.max(probs) # Pega a maior probabilidade
+                    return codigo, texto, confianca
 
-            # Fail Mode
-            cod_mode, desc_mode = prever_e_traduzir('FailMode', map_mode)
-            r_col1.metric("Modo de Falha", f"{cod_mode}", delta=desc_mode, delta_color="off")
-            
-            # Det Method
-            cod_det, desc_det = prever_e_traduzir('DetMethod', map_det)
-            r_col2.metric("Método de Detecção", f"{cod_det}", delta=desc_det, delta_color="off")
-            
-            # Fail Mech
-            cod_mech, desc_mech = prever_e_traduzir('FailMech', map_mech)
-            r_col3.metric("Mecanismo de Falha", f"{cod_mech}", delta=desc_mech, delta_color="off")
-            
-            st.success("Classificação concluída.")
+                # Executa as previsões
+                c_mode, t_mode, p_mode = prever_completo('FailMode', map_mode)
+                c_det, t_det, p_det = prever_completo('DetMethod', map_det)
+                c_mech, t_mech, p_mech = prever_completo('FailMech', map_mech)
+
+                # Mostra os resultados com barra de confiança
+                st.subheader("Resultados da Análise:")
+                
+                rc1, rc2, rc3 = st.columns(3)
+                
+                with rc1:
+                    st.metric("Modo de Falha", c_mode, delta=t_mode, delta_color="off")
+                    st.progress(float(p_mode), text=f"Confiança: {p_mode:.1%}")
+
+                with rc2:
+                    st.metric("Detecção", c_det, delta=t_det, delta_color="off")
+                    st.progress(float(p_det), text=f"Confiança: {p_det:.1%}")
+                
+                with rc3:
+                    st.metric("Mecanismo", c_mech, delta=t_mech, delta_color="off")
+                    st.progress(float(p_mech), text=f"Confiança: {p_mech:.1%}")
+
+                # --- SALVAR NO HISTÓRICO ---
+                novo_registro = {
+                    "Tag": tag,
+                    "Descrição": descricao,
+                    "Impacto": impacto,
+                    "Modo (Cod)": c_mode,
+                    "Modo (Desc)": t_mode,
+                    "Detecção (Cod)": c_det,
+                    "Mecanismo (Cod)": c_mech,
+                    "Confiança Média": f"{(p_mode+p_det+p_mech)/3:.1%}"
+                }
+                st.session_state.historico.append(novo_registro)
+                st.success("Classificado e salvo no histórico!")
+
+# === ABA 2: HISTÓRICO ===
+with tab2:
+    st.header("Histórico Recente")
+    if len(st.session_state.historico) > 0:
+        df_hist = pd.DataFrame(st.session_state.historico)
+        st.dataframe(df_hist, use_container_width=True)
+        
+        # Botão de Download
+        csv = df_hist.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Baixar Histórico em CSV",
+            data=csv,
+            file_name='historico_falhas.csv',
+            mime='text/csv',
+        )
+    else:
+        st.info("Nenhuma classificação feita nesta sessão ainda.")
+
+# === ABA 3: DICIONÁRIO ===
+with tab3:
+    st.header("📚 Dicionário de Códigos")
+    
+    # Cria "Expander" (caixas que abrem e fecham) para organizar
+    with st.expander("Ver Mecanismos de Falha (Failure Mechanism)"):
+        df_mech = pd.DataFrame(list(map_mech.items()), columns=['Código', 'Descrição'])
+        st.table(df_mech)
+        
+    with st.expander("Ver Modos de Falha (Failure Mode)"):
+        df_mode = pd.DataFrame(list(map_mode.items()), columns=['Código', 'Descrição'])
+        st.table(df_mode)
+
+    with st.expander("Ver Métodos de Detecção (Detection Method)"):
+        df_det = pd.DataFrame(list(map_det.items()), columns=['Código', 'Descrição'])
+        st.table(df_det)
