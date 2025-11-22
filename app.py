@@ -280,38 +280,71 @@ with tab1:
                 
                 st.success("Correção salva!")
 
-# === ABA 2: EM MASSA ===
+# === ABA 2: EM MASSA (BLINDADA) ===
 with tab2:
     st.markdown("### Upload de CSV")
-    st.info("O CSV deve conter as colunas: `Tag`, `Description`, `FailureImp` (pode usar S, D, U ou X).")
-    upl = st.file_uploader("Arquivo", type=['csv'])
+    st.info("O CSV deve conter as colunas: `Tag`, `Description`, `FailureImp`.")
+    
+    # Adicionei um seletor caso o automático falhe
+    separador_manual = st.selectbox("Separador do arquivo:", [", (Vírgula - Padrão)", "; (Ponto e Vírgula - Excel BR)"], index=0)
+    sep_char = "," if separador_manual.startswith(",") else ";"
+    
+    upl = st.file_uploader("Arraste seu arquivo aqui", type=['csv', 'txt'])
+    
     if upl:
-        df_up = pd.read_csv(upl)
-        if st.button("Processar Planilha"):
-            with st.spinner("Processando..."):
-                for c in ['Tag', 'Description', 'FailureImp']:
-                    if c not in df_up.columns: df_up[c] = ""
-                
-                # Garante que os impactos na planilha sejam limpos (opcional)
-                # Se vier vazio, preenche com X
-                df_up['FailureImp'] = df_up['FailureImp'].fillna('X')
-                
-                df_up['TEXTO_LIMPO'] = df_up['Description'].astype(str).apply(limpar_texto)
-                
-                p_mode = encoders['FailMode'].inverse_transform(modelos['FailMode'].predict(df_up))
-                p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
-                p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
-                
-                df_up['Modo_Cod'] = p_mode
-                df_up['Modo_Desc'] = [map_mode.get(x, x) for x in p_mode]
-                df_up['Det_Cod'] = p_det
-                df_up['Det_Desc'] = [map_det.get(x, x) for x in p_det]
-                df_up['Mech_Cod'] = p_mech
-                df_up['Mech_Desc'] = [map_mech.get(x, x) for x in p_mech]
-                
-                st.dataframe(df_up.head())
-                st.download_button("Baixar Resultado", df_up.to_csv(index=False).encode('utf-8'), "resultado.csv", "text/csv")
-
+        try:
+            # Tenta ler com o separador escolhido
+            # 'on_bad_lines=skip' pula linhas quebradas em vez de travar o app
+            # 'engine=python' é mais robusto para detectar aspas
+            df_up = pd.read_csv(upl, sep=sep_char, on_bad_lines='warn', engine='python')
+            
+            st.success(f"Arquivo carregado! {len(df_up)} linhas detectadas.")
+            
+            # Verifica colunas necessárias
+            colunas_ok = True
+            for c in ['Tag', 'Description', 'FailureImp']:
+                if c not in df_up.columns:
+                    st.error(f"❌ Coluna '{c}' não encontrada no arquivo. Verifique se o separador está correto.")
+                    colunas_ok = False
+            
+            if colunas_ok:
+                if st.button("Processar Planilha"):
+                    with st.spinner("A IA está lendo linha por linha..."):
+                        
+                        # Limpeza e Tratamento de Nulos
+                        df_up['FailureImp'] = df_up['FailureImp'].fillna('X')
+                        df_up['Description'] = df_up['Description'].fillna('')
+                        df_up['Tag'] = df_up['Tag'].fillna('N/A')
+                        
+                        df_up['TEXTO_LIMPO'] = df_up['Description'].astype(str).apply(limpar_texto)
+                        
+                        # Previsões
+                        p_mode = encoders['FailMode'].inverse_transform(modelos['FailMode'].predict(df_up))
+                        p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
+                        p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
+                        
+                        # Preenche Resultados
+                        df_up['Modo_Cod'] = p_mode
+                        df_up['Modo_Desc'] = [map_mode.get(x, x) for x in p_mode]
+                        df_up['Det_Cod'] = p_det
+                        df_up['Det_Desc'] = [map_det.get(x, x) for x in p_det]
+                        df_up['Mech_Cod'] = p_mech
+                        df_up['Mech_Desc'] = [map_mech.get(x, x) for x in p_mech]
+                        
+                        st.dataframe(df_up.head())
+                        
+                        # Download
+                        csv_final = df_up.to_csv(index=False, sep=';').encode('utf-8') # Exporta com ; para abrir fácil no Excel BR
+                        st.download_button(
+                            label="📥 Baixar Resultado (Excel BR)", 
+                            data=csv_final, 
+                            file_name="resultado_classificado.csv", 
+                            mime="text/csv"
+                        )
+                        
+        except Exception as e:
+            st.error("Erro ao ler o arquivo. Tente mudar o 'Separador' ali em cima para Ponto e Vírgula (;).")
+            st.error(f"Detalhe técnico: {e}")
 # === ABA 3: DASHBOARD ===
 with tab3:
     st.header("📊 Estatísticas da Sessão")
@@ -344,3 +377,4 @@ with tab4:
     with st.expander("Modos de Falha"): st.table(pd.DataFrame(list(map_mode.items()), columns=['Cod', 'Desc']))
     with st.expander("Mecanismos"): st.table(pd.DataFrame(list(map_mech.items()), columns=['Cod', 'Desc']))
     with st.expander("Detecção"): st.table(pd.DataFrame(list(map_det.items()), columns=['Cod', 'Desc']))
+
