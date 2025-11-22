@@ -41,7 +41,6 @@ def limpar_texto(texto):
 
 # --- 4. DICIONÁRIOS (TRADUZIDOS) ---
 
-# Mapeamento do Frontend (Menu) para o Código do Modelo
 map_impacto_frontend = {
     "D - Falha Crítica (Dead)": "D",
     "S - Falha Degradada (Degraded)": "S",
@@ -49,7 +48,6 @@ map_impacto_frontend = {
     "Outros (X / None)": "X"
 }
 
-# Dicionários Completos (Código -> Descrição Traduzida)
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -180,7 +178,6 @@ with tab1:
             })
             dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
 
-            # Função Helper para Top 3
             def get_top3(col, dic):
                 probs = modelos[col].predict_proba(dados)[0]
                 idxs = np.argsort(probs)[-3:][::-1]
@@ -202,7 +199,6 @@ with tab1:
                 'mech': res_mech[0][0]
             }
 
-            # Formatação para o Histórico: "CÓDIGO - Descrição"
             txt_mode_completo = f"{res_mode[0][0]} - {res_mode[0][1]}"
             txt_det_completo = f"{res_det[0][0]} - {res_det[0][1]}"
             txt_mech_completo = f"{res_mech[0][0]} - {res_mech[0][1]}"
@@ -219,24 +215,25 @@ with tab1:
                 "Status": "IA (Automático)"
             })
 
-            # --- EXIBIÇÃO DOS RESULTADOS (FORMATO NOVO) ---
             st.subheader("Resultados da IA:")
             c1, c2, c3 = st.columns(3)
             
             def display_res(title, res_list, col):
                 with col:
                     top = res_list[0]
-                    # Formato: CÓDIGO - Descrição (Tradução)
                     texto_final = f"{top[0]} - {top[1]}"
                     
                     st.markdown(f"###### {title}")
-                    # Usa st.success para destacar bem o texto completo
                     st.success(texto_final)
-                    st.progress(top[2], text=f"Confiança: {top[2]:.1%}")
+                    
+                    # --- CORREÇÃO DO ERRO AQUI ---
+                    # Convertemos top[2] (que é float32) para float do Python
+                    confianca_valor = float(top[2])
+                    st.progress(confianca_valor, text=f"Confiança: {confianca_valor:.1%}")
+                    # -----------------------------
                     
                     with st.expander("Outras opções"):
                         for item in res_list[1:]:
-                            # Mostra as outras opções também no formato completo
                             st.markdown(f"**{item[0]}**: {item[2]:.1%} - {item[1]}")
                             st.divider()
             
@@ -261,7 +258,6 @@ with tab1:
                 except: pass
             
             c_f1, c_f2, c_f3 = st.columns(3)
-            # Dropdowns também mostram CÓDIGO - Descrição
             novo_mode = c_f1.selectbox("Modo Correto", l_modos, index=i_m, format_func=lambda x: f"{x} - {map_mode.get(x,'')}")
             novo_det = c_f2.selectbox("Detecção Correta", l_dets, index=i_d, format_func=lambda x: f"{x} - {map_det.get(x,'')}")
             novo_mech = c_f3.selectbox("Mecanismo Correto", l_mechs, index=i_me, format_func=lambda x: f"{x} - {map_mech.get(x,'')}")
@@ -317,7 +313,6 @@ with tab2:
                         p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
                         p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
                         
-                        # Preenche Resultados formatados CÓDIGO - DESCRIÇÃO
                         df_up['Modo'] = [f"{x} - {map_mode.get(x, x)}" for x in p_mode]
                         df_up['Deteccao'] = [f"{x} - {map_det.get(x, x)}" for x in p_det]
                         df_up['Mecanismo'] = [f"{x} - {map_mech.get(x, x)}" for x in p_mech]
