@@ -11,10 +11,9 @@ import plotly.express as px
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Classificador de Falhas Pro", layout="wide")
-st.title("🔧 Classificador de Falhas - Versão Completa")
+st.title("🔧 Classificador de Falhas - Versão Pro")
 
-# --- 2. INICIALIZAR MEMÓRIA (SESSION STATE) ---
-# Isso garante que o histórico não suma durante a navegação
+# --- 2. INICIALIZAR MEMÓRIA ---
 if 'historico' not in st.session_state:
     st.session_state.historico = []
 if 'resultado_ia' not in st.session_state:
@@ -40,7 +39,17 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# --- 4. DICIONÁRIOS TRADUZIDOS ---
+# --- 4. DICIONÁRIOS ---
+
+# NOVO: Mapeamento de Impacto (Visual -> Código do Modelo)
+map_impacto_frontend = {
+    "D - Falha Crítica (Dead)": "D",
+    "S - Falha Degradada (Degraded)": "S",
+    "U - Falha Incipiente (Unwell)": "U",
+    "Outros (X / None)": "X"  # Agrupa X e None como X para o modelo
+}
+
+# Dicionários de Tradução (Modo, Mecanismo, Detecção)
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -144,8 +153,25 @@ with tab1:
     col1, col2 = st.columns(2)
     with col1:
         tag = st.text_input("Tag", value="1298-31-PIT-0122")
+    
+    # --- NOVO SELETOR DE IMPACTO COM DESCRIÇÕES ---
     with col2:
-        impacto = st.selectbox("Impacto", ['S', 'D', 'U', 'X', 'None'])
+        # Pega as chaves (os nomes bonitos) para mostrar no menu
+        opcoes_impacto = list(map_impacto_frontend.keys())
+        impacto_selecionado = st.selectbox("Impacto da Falha (FailureImp)", opcoes_impacto)
+        
+        # Converte o nome bonito de volta para o código (D, S, U, X) para a IA
+        codigo_impacto = map_impacto_frontend[impacto_selecionado]
+
+    # --- ÁREA DE AJUDA / DEFINIÇÕES ---
+    with st.expander("ℹ️ Entenda os Tipos de Impacto (Clique para ver)", expanded=False):
+        st.markdown("""
+        * 🔴 **D - Falha Crítica (Dead):** Cessa a função fundamental. Ex: Bomba travada.
+        * 🟠 **S - Falha Degradada (Serious):** Reduz desempenho ou afeta função secundária. Ex: Baixa vazão.
+        * 🟡 **U - Falha Incipiente (Unwell):** Imperfeição que pode evoluir. Ex: Partículas no óleo.
+        * ⚪ **Outros:** Falhas que não se enquadram ou sem classificação clara (X/None).
+        """)
+
     descricao = st.text_area("Descrição da Falha", height=100)
 
     if st.button("Classificar", type="primary"):
@@ -153,7 +179,11 @@ with tab1:
             st.warning("Digite uma descrição.")
         else:
             # Processamento
-            dados = pd.DataFrame({'Tag': [tag], 'FailureImp': [impacto], 'Description': [descricao]})
+            dados = pd.DataFrame({
+                'Tag': [tag], 
+                'FailureImp': [codigo_impacto], # Usa o código interno (D, S, U, X)
+                'Description': [descricao]
+            })
             dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
 
             # Função Helper
@@ -184,8 +214,9 @@ with tab1:
             st.session_state.historico.append({
                 "Tag": tag, 
                 "Descrição": descricao,
+                "Impacto": impacto_selecionado, # Salva o nome bonito no histórico
                 "Modo": f"{res_mode[0][0]} - {res_mode[0][1]}",
-                "Modo_Cod": res_mode[0][0], # Guardar código puro para gráfico
+                "Modo_Cod": res_mode[0][0],
                 "Detecção": f"{res_det[0][0]} - {res_det[0][1]}", 
                 "Mecanismo": f"{res_mech[0][0]} - {res_mech[0][1]}", 
                 "Confiança": res_mode[0][2],
@@ -217,7 +248,6 @@ with tab1:
             l_dets = list(map_det.keys())
             l_mechs = list(map_mech.keys())
 
-            # Tenta achar indices atuais
             i_m, i_d, i_me = 0, 0, 0
             if st.session_state.resultado_ia:
                 try:
@@ -232,16 +262,15 @@ with tab1:
             novo_mech = c_f3.selectbox("Mecanismo Correto", l_mechs, index=i_me, format_func=lambda x: f"{x} - {map_mech.get(x,'')}")
             
             if st.form_submit_button("💾 Salvar Correção"):
-                # 1. Salvar no CSV de Treino
+                # Salvar (Usando o código interno de impacto para manter consistência no treino)
                 df_feed = pd.DataFrame({
-                    'Tag': [tag], 'Description': [descricao], 'FailureImp': [impacto],
+                    'Tag': [tag], 'Description': [descricao], 'FailureImp': [codigo_impacto],
                     'FailMode': [novo_mode], 'DetMethod': [novo_det], 'FailMech': [novo_mech]
                 })
                 arq_feed = 'novos_dados_treino.csv'
                 header = not os.path.exists(arq_feed)
                 df_feed.to_csv(arq_feed, mode='a', header=header, index=False)
                 
-                # 2. Atualizar o Histórico do Dashboard (A Mágica!)
                 if len(st.session_state.historico) > 0:
                     st.session_state.historico[-1]['Modo'] = f"{novo_mode} - {map_mode.get(novo_mode,'')}"
                     st.session_state.historico[-1]['Modo_Cod'] = novo_mode
@@ -249,27 +278,30 @@ with tab1:
                     st.session_state.historico[-1]['Mecanismo'] = f"{novo_mech} - {map_mech.get(novo_mech,'')}"
                     st.session_state.historico[-1]['Status'] = "Corrigido por Humano"
                 
-                st.success("Correção salva! O Dashboard foi atualizado e o modelo aprenderá isso no próximo treino.")
+                st.success("Correção salva!")
 
 # === ABA 2: EM MASSA ===
 with tab2:
     st.markdown("### Upload de CSV")
-    upl = st.file_uploader("Arquivo (colunas: Tag, Description, FailureImp)", type=['csv'])
+    st.info("O CSV deve conter as colunas: `Tag`, `Description`, `FailureImp` (pode usar S, D, U ou X).")
+    upl = st.file_uploader("Arquivo", type=['csv'])
     if upl:
         df_up = pd.read_csv(upl)
         if st.button("Processar Planilha"):
             with st.spinner("Processando..."):
-                # Prepara
                 for c in ['Tag', 'Description', 'FailureImp']:
                     if c not in df_up.columns: df_up[c] = ""
+                
+                # Garante que os impactos na planilha sejam limpos (opcional)
+                # Se vier vazio, preenche com X
+                df_up['FailureImp'] = df_up['FailureImp'].fillna('X')
+                
                 df_up['TEXTO_LIMPO'] = df_up['Description'].astype(str).apply(limpar_texto)
                 
-                # Prevê
                 p_mode = encoders['FailMode'].inverse_transform(modelos['FailMode'].predict(df_up))
                 p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
                 p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
                 
-                # Preenche
                 df_up['Modo_Cod'] = p_mode
                 df_up['Modo_Desc'] = [map_mode.get(x, x) for x in p_mode]
                 df_up['Det_Cod'] = p_det
@@ -280,15 +312,11 @@ with tab2:
                 st.dataframe(df_up.head())
                 st.download_button("Baixar Resultado", df_up.to_csv(index=False).encode('utf-8'), "resultado.csv", "text/csv")
 
-# === ABA 3: DASHBOARD (CORRIGIDO) ===
+# === ABA 3: DASHBOARD ===
 with tab3:
     st.header("📊 Estatísticas da Sessão")
-    
-    # Verifica se há dados
     if len(st.session_state.historico) > 0:
         df_hist = pd.DataFrame(st.session_state.historico)
-        
-        # Métricas de Topo
         k1, k2, k3 = st.columns(3)
         k1.metric("Total Analisado", len(df_hist))
         k2.metric("Correções Humanas", len(df_hist[df_hist['Status'] == "Corrigido por Humano"]))
@@ -296,27 +324,19 @@ with tab3:
         k3.metric("Confiança Média IA", f"{media_conf:.1%}" if not pd.isna(media_conf) else "N/A")
         
         st.divider()
-        
-        # Gráficos
         g1, g2 = st.columns(2)
         with g1:
             fig1 = px.pie(df_hist, names='Modo_Cod', title='Modos de Falha Mais Comuns')
             st.plotly_chart(fig1, use_container_width=True)
         with g2:
-            # Gráfico de Barras de Mecanismos (limpa o texto grande pra ficar bonito)
             df_hist['Mech_Short'] = df_hist['Mecanismo'].apply(lambda x: x.split(' - ')[0])
             fig2 = px.bar(df_hist, x='Mech_Short', title='Contagem de Mecanismos', color='Status')
             st.plotly_chart(fig2, use_container_width=True)
             
-        st.markdown("### Histórico Detalhado")
         st.dataframe(df_hist, use_container_width=True)
-        
-        # Download do Histórico da Sessão
-        st.download_button("📥 Baixar Histórico da Sessão", df_hist.to_csv(index=False).encode('utf-8'), "historico_sessao.csv", "text/csv")
-        
+        st.download_button("📥 Baixar Histórico", df_hist.to_csv(index=False).encode('utf-8'), "historico_sessao.csv", "text/csv")
     else:
-        st.info("⚠️ O Dashboard está vazio porque você ainda não classificou nada nesta sessão.")
-        st.markdown("Vá até a aba **'Classificador & Feedback'** e faça uma análise para ver os dados aparecerem aqui.")
+        st.info("⚠️ O Dashboard está vazio. Classifique algo na aba 1 para ver os dados.")
 
 # === ABA 4: DICIONÁRIO ===
 with tab4:
