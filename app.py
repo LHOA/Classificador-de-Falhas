@@ -11,7 +11,7 @@ import plotly.express as px
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Classificador de Falhas Pro", layout="wide")
-st.title("🔧 Classificador de Falhas - Versão Pro")
+st.title("🔧 Classificador de Falhas - ISO 14224 - V1")
 
 # --- 2. INICIALIZAR MEMÓRIA ---
 if 'historico' not in st.session_state:
@@ -47,6 +47,8 @@ map_impacto_frontend = {
     "U - Falha Incipiente (Unwell)": "U",
     "Outros (X / None)": "X"
 }
+# Cria o inverso para usar na importação em massa (D -> D - Falha Crítica...)
+map_impacto_backend = {v: k for k, v in map_impacto_frontend.items()}
 
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
@@ -146,12 +148,11 @@ encoders = artefatos['encoders']
 # --- 6. ESTRUTURA DE ABAS ---
 tab1, tab2, tab3, tab4 = st.tabs(["📝 Classificador & Feedback", "🚀 Avaliação em Massa", "📊 Dashboard", "📚 Dicionário"])
 
-# === ABA 1: CLASSIFICADOR INDIVIDUAL + FEEDBACK ===
+# === ABA 1: CLASSIFICADOR ===
 with tab1:
     col1, col2 = st.columns(2)
     with col1:
         tag = st.text_input("Tag", value="1298-31-PIT-0122")
-    
     with col2:
         opcoes_impacto = list(map_impacto_frontend.keys())
         impacto_selecionado = st.selectbox("Impacto da Falha (FailureImp)", opcoes_impacto)
@@ -162,7 +163,7 @@ with tab1:
         * 🔴 **D - Falha Crítica (Dead):** Cessa a função fundamental.
         * 🟠 **S - Falha Degradada (Serious):** Reduz desempenho ou afeta função secundária.
         * 🟡 **U - Falha Incipiente (Unwell):** Imperfeição que pode evoluir.
-        * ⚪ **Outros:** Falhas que não se enquadram ou indefinidas (X/None).
+        * ⚪ **Outros:** Falhas indefinidas.
         """)
 
     descricao = st.text_area("Descrição da Falha", height=100)
@@ -171,11 +172,7 @@ with tab1:
         if not descricao:
             st.warning("Digite uma descrição.")
         else:
-            dados = pd.DataFrame({
-                'Tag': [tag], 
-                'FailureImp': [codigo_impacto],
-                'Description': [descricao]
-            })
+            dados = pd.DataFrame({'Tag': [tag], 'FailureImp': [codigo_impacto], 'Description': [descricao]})
             dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
 
             def get_top3(col, dic):
@@ -193,26 +190,17 @@ with tab1:
             res_det = get_top3('DetMethod', map_det)
             res_mech = get_top3('FailMech', map_mech)
 
-            st.session_state.resultado_ia = {
-                'mode': res_mode[0][0],
-                'det': res_det[0][0],
-                'mech': res_mech[0][0]
-            }
+            st.session_state.resultado_ia = {'mode': res_mode[0][0], 'det': res_det[0][0], 'mech': res_mech[0][0]}
 
             txt_mode_completo = f"{res_mode[0][0]} - {res_mode[0][1]}"
             txt_det_completo = f"{res_det[0][0]} - {res_det[0][1]}"
             txt_mech_completo = f"{res_mech[0][0]} - {res_mech[0][1]}"
 
             st.session_state.historico.append({
-                "Tag": tag, 
-                "Descrição": descricao,
-                "Impacto": impacto_selecionado,
-                "Modo": txt_mode_completo,
-                "Modo_Cod": res_mode[0][0],
-                "Detecção": txt_det_completo, 
-                "Mecanismo": txt_mech_completo, 
-                "Confiança": res_mode[0][2],
-                "Status": "IA (Automático)"
+                "Tag": tag, "Descrição": descricao, "Impacto": impacto_selecionado,
+                "Modo": txt_mode_completo, "Modo_Cod": res_mode[0][0],
+                "Detecção": txt_det_completo, "Mecanismo": txt_mech_completo,
+                "Confiança": float(res_mode[0][2]), "Status": "IA (Automático)"
             })
 
             st.subheader("Resultados da IA:")
@@ -221,14 +209,9 @@ with tab1:
             def display_res(title, res_list, col):
                 with col:
                     top = res_list[0]
-                    texto_final = f"{top[0]} - {top[1]}"
-                    
                     st.markdown(f"###### {title}")
-                    st.success(texto_final)
-                    
-                    confianca_valor = float(top[2])
-                    st.progress(confianca_valor, text=f"Confiança: {confianca_valor:.1%}")
-                    
+                    st.success(f"{top[0]} - {top[1]}")
+                    st.progress(float(top[2]), text=f"Confiança: {float(top[2]):.1%}")
                     with st.expander("Outras opções"):
                         for item in res_list[1:]:
                             st.markdown(f"**{item[0]}**: {item[2]:.1%} - {item[1]}")
@@ -238,14 +221,12 @@ with tab1:
             display_res("Detecção", res_det, c2)
             display_res("Mecanismo", res_mech, c3)
 
-    # --- ÁREA DE FEEDBACK ---
     st.markdown("---")
     with st.expander("❌ A classificação está errada? Corrigir aqui."):
         with st.form("form_feedback"):
             l_modos = list(map_mode.keys())
             l_dets = list(map_det.keys())
             l_mechs = list(map_mech.keys())
-
             i_m, i_d, i_me = 0, 0, 0
             if st.session_state.resultado_ia:
                 try:
@@ -274,32 +255,30 @@ with tab1:
                     st.session_state.historico[-1]['Detecção'] = f"{novo_det} - {map_det.get(novo_det,'')}"
                     st.session_state.historico[-1]['Mecanismo'] = f"{novo_mech} - {map_mech.get(novo_mech,'')}"
                     st.session_state.historico[-1]['Status'] = "Corrigido por Humano"
-                
+                    st.session_state.historico[-1]['Confiança'] = 1.0 # Correção humana = 100% confiança
                 st.success("Correção salva!")
 
-# === ABA 2: EM MASSA (BLINDADA) ===
+# === ABA 2: EM MASSA (COM INTEGRAÇÃO AO DASHBOARD) ===
 with tab2:
     st.markdown("### Upload de CSV")
-    st.info("O CSV deve conter as colunas: `Tag`, `Description`, `FailureImp`.")
+    st.info("Colunas: `Tag`, `Description`, `FailureImp`.")
     
-    separador_manual = st.selectbox("Separador do arquivo:", [", (Vírgula - Padrão)", "; (Ponto e Vírgula - Excel BR)"], index=0)
+    separador_manual = st.selectbox("Separador do arquivo:", [", (Vírgula)", "; (Ponto e Vírgula)"], index=0)
     sep_char = "," if separador_manual.startswith(",") else ";"
-    
     upl = st.file_uploader("Arraste seu arquivo aqui", type=['csv', 'txt'])
     
     if upl:
         try:
             df_up = pd.read_csv(upl, sep=sep_char, on_bad_lines='warn', engine='python')
-            st.success(f"Arquivo carregado! {len(df_up)} linhas detectadas.")
+            st.success(f"{len(df_up)} linhas carregadas.")
             
             colunas_ok = True
             for c in ['Tag', 'Description', 'FailureImp']:
                 if c not in df_up.columns:
-                    st.error(f"❌ Coluna '{c}' não encontrada.")
-                    colunas_ok = False
+                    st.error(f"❌ Coluna '{c}' não encontrada."); colunas_ok = False
             
             if colunas_ok:
-                if st.button("Processar Planilha"):
+                if st.button("Processar e Classificar"):
                     with st.spinner("Processando..."):
                         df_up['FailureImp'] = df_up['FailureImp'].fillna('X')
                         df_up['Description'] = df_up['Description'].fillna('')
@@ -310,87 +289,132 @@ with tab2:
                         p_det = encoders['DetMethod'].inverse_transform(modelos['DetMethod'].predict(df_up))
                         p_mech = encoders['FailMech'].inverse_transform(modelos['FailMech'].predict(df_up))
                         
+                        # Mapeia resultados
                         df_up['Modo'] = [f"{x} - {map_mode.get(x, x)}" for x in p_mode]
                         df_up['Deteccao'] = [f"{x} - {map_det.get(x, x)}" for x in p_det]
                         df_up['Mecanismo'] = [f"{x} - {map_mech.get(x, x)}" for x in p_mech]
                         
-                        st.dataframe(df_up[['Tag', 'Modo', 'Deteccao', 'Mecanismo']].head())
-                        
-                        csv_final = df_up.to_csv(index=False, sep=';').encode('utf-8')
-                        st.download_button("📥 Baixar Resultado (Excel BR)", csv_final, "resultado_classificado.csv", "text/csv")
-                        
-        except Exception as e:
-            st.error(f"Erro ao ler arquivo: {e}")
+                        st.dataframe(df_up.head())
+                        st.download_button("Baixar CSV", df_up.to_csv(index=False, sep=';').encode('utf-8'), "resultado.csv", "text/csv")
 
-# === ABA 3: DASHBOARD ATUALIZADO ===
+                        # --- BOTÃO MÁGICO: ADICIONAR AO DASHBOARD ---
+                        st.markdown("---")
+                        if st.button("📊 Adicionar esses dados ao Dashboard de Análise"):
+                            novos_itens = []
+                            for idx, row in df_up.iterrows():
+                                # Tenta converter o código curto (D) para o Longo (D - Crítica)
+                                imp_long = map_impacto_backend.get(row['FailureImp'], "Outros (X / None)")
+                                
+                                novos_itens.append({
+                                    "Tag": row['Tag'], "Descrição": row['Description'], "Impacto": imp_long,
+                                    "Modo": row['Modo'], "Modo_Cod": p_mode[idx],
+                                    "Detecção": row['Deteccao'], "Mecanismo": row['Mecanismo'],
+                                    "Confiança": 0.90, # Valor fixo estimado para batch
+                                    "Status": "IA (Em Massa)"
+                                })
+                            st.session_state.historico.extend(novos_itens)
+                            st.success(f"{len(novos_itens)} itens adicionados ao Dashboard! Vá para a aba 'Dashboard' para analisar.")
+
+        except Exception as e: st.error(f"Erro: {e}")
+
+# === ABA 3: DASHBOARD ULTIMATE ===
 with tab3:
-    st.header("📊 Estatísticas da Sessão")
+    st.header("📊 Dashboard Analítico")
+    
     if len(st.session_state.historico) > 0:
-        df_hist = pd.DataFrame(st.session_state.historico)
-        k1, k2, k3 = st.columns(3)
-        k1.metric("Total Analisado", len(df_hist))
-        k2.metric("Correções Humanas", len(df_hist[df_hist['Status'] == "Corrigido por Humano"]))
+        df = pd.DataFrame(st.session_state.historico)
         
-        conf_media = df_hist[df_hist['Status'] == 'IA (Automático)']['Confiança'].mean()
-        # Correção para evitar NaN se não houver dados automáticos
-        k3.metric("Confiança Média IA", f"{float(conf_media):.1%}" if not pd.isna(conf_media) else "N/A")
+        # --- FILTROS ---
+        st.markdown("##### 🔎 Filtros Globais")
+        c_f1, c_f2 = st.columns(2)
+        filtro_impacto = c_f1.multiselect("Filtrar por Impacto", options=df['Impacto'].unique(), default=df['Impacto'].unique())
+        filtro_status = c_f2.multiselect("Filtrar por Status", options=df['Status'].unique(), default=df['Status'].unique())
         
-        st.divider()
+        df_filtered = df[df['Impacto'].isin(filtro_impacto) & df['Status'].isin(filtro_status)]
         
-        # Prepara funções auxiliares para limpar nomes
-        def get_desc(x):
-            # Pega só a parte depois do " - "
-            parts = str(x).split(' - ', 1)
-            return parts[1] if len(parts) > 1 else x
-
-        df_hist['Mech_Desc_Only'] = df_hist['Mecanismo'].apply(get_desc)
-        df_hist['Det_Desc_Only'] = df_hist['Detecção'].apply(get_desc)
-
-        # GRÁFICO 1: MODO DE FALHA (SIGLAS)
-        c_g1, c_g2 = st.columns(2)
-        with c_g1:
-            fig_mode = px.pie(
-                df_hist, 
-                names='Modo_Cod', 
-                title='Modo de Falha (Por Sigla)', 
-                hole=0.4
-            )
-            st.plotly_chart(fig_mode, use_container_width=True)
-
-        # GRÁFICO 2: MECANISMO (NOME COMPLETO)
-        with c_g2:
-            # Agrupa para ordenar melhor
-            mech_counts = df_hist['Mech_Desc_Only'].value_counts().reset_index()
-            mech_counts.columns = ['Mecanismo', 'Contagem']
+        if df_filtered.empty:
+            st.warning("Nenhum dado encontrado com esses filtros.")
+        else:
+            # --- KPIS ---
+            k1, k2, k3, k4 = st.columns(4)
+            k1.metric("Falhas Analisadas", len(df_filtered))
+            n_critical = len(df_filtered[df_filtered['Impacto'].str.contains('Crítica', na=False)])
+            k2.metric("Falhas Críticas (D)", n_critical)
             
-            fig_mech = px.bar(
-                mech_counts, 
-                x='Contagem', 
-                y='Mecanismo', 
-                orientation='h', 
-                title='Mecanismo de Falha (Nome Completo)',
-                text='Contagem'
-            )
-            fig_mech.update_layout(yaxis={'categoryorder':'total ascending'}) 
-            st.plotly_chart(fig_mech, use_container_width=True)
-
-        # GRÁFICO 3: DETECÇÃO (NOME COMPLETO)
-        det_counts = df_hist['Det_Desc_Only'].value_counts().reset_index()
-        det_counts.columns = ['Metodo', 'Contagem']
-        
-        fig_det = px.bar(
-            det_counts, 
-            x='Metodo', 
-            y='Contagem', 
-            title='Método de Detecção (Nome Completo)',
-            text='Contagem'
-        )
-        st.plotly_chart(fig_det, use_container_width=True)
+            n_corrigido = len(df_filtered[df_filtered['Status'].str.contains('Humano', na=False)])
+            perc_correction = n_corrigido / len(df_filtered) if len(df_filtered) > 0 else 0
+            k3.metric("Taxa de Correção Humana", f"{perc_correction:.1%}")
             
-        st.dataframe(df_hist, use_container_width=True)
-        st.download_button("📥 Baixar Histórico", df_hist.to_csv(index=False, sep=';').encode('utf-8'), "historico_sessao.csv", "text/csv")
+            conf_avg = df_filtered[df_filtered['Status'] != 'Corrigido por Humano']['Confiança'].mean()
+            k4.metric("Confiança Média IA", f"{float(conf_avg):.1%}" if pd.notnull(conf_avg) else "N/A")
+            
+            st.divider()
+            
+            # --- LINHA 1: SUNBURST & TREEMAP ---
+            g1, g2 = st.columns(2)
+            with g1:
+                st.subheader("Hierarquia: Impacto ➝ Modo")
+                # Cores personalizadas para os impactos
+                cores_impacto = {
+                    'D - Falha Crítica (Dead)': '#ff4b4b', 
+                    'S - Falha Degradada (Serious)': '#ffa421', 
+                    'U - Falha Incipiente (Unwell)': '#ffe312', 
+                    'Outros (X / None)': '#808495'
+                }
+                fig_sun = px.sunburst(
+                    df_filtered, path=['Impacto', 'Modo_Cod'], 
+                    title='Distribuição de Falhas (Impacto > Sigla Modo)',
+                    color='Impacto', color_discrete_map=cores_impacto
+                )
+                st.plotly_chart(fig_sun, use_container_width=True)
+                
+            with g2:
+                st.subheader("Mapa de Calor: Mecanismos")
+                # Limpa o nome para o gráfico (remove o código numérico)
+                df_filtered['Mech_Clean'] = df_filtered['Mecanismo'].apply(lambda x: str(x).split(' - ', 1)[1] if ' - ' in str(x) else str(x))
+                counts_mech = df_filtered['Mech_Clean'].value_counts().reset_index()
+                counts_mech.columns = ['Mecanismo', 'Contagem']
+                
+                fig_tree = px.treemap(
+                    counts_mech, path=['Mecanismo'], values='Contagem',
+                    title='Mecanismos Mais Frequentes', color='Contagem', color_continuous_scale='Blues'
+                )
+                st.plotly_chart(fig_tree, use_container_width=True)
+            
+            # --- LINHA 2: TOP EQUIPMENT & DETECÇÃO ---
+            g3, g4 = st.columns(2)
+            with g3:
+                st.subheader("🚨 Top 5 Equipamentos Críticos")
+                top_tags = df_filtered['Tag'].value_counts().head(5).reset_index()
+                top_tags.columns = ['Tag', 'Falhas']
+                fig_tags = px.bar(top_tags, x='Falhas', y='Tag', orientation='h', text='Falhas')
+                fig_tags.update_layout(yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_tags, use_container_width=True)
+                
+            with g4:
+                st.subheader("Métodos de Detecção")
+                df_filtered['Det_Clean'] = df_filtered['Detecção'].apply(lambda x: str(x).split(' - ', 1)[1] if ' - ' in str(x) else str(x))
+                # Conta para ordenar bonito
+                det_counts = df_filtered['Det_Clean'].value_counts().reset_index()
+                det_counts.columns = ['Metodo', 'Qtd']
+                fig_det = px.bar(det_counts, x='Metodo', y='Qtd', title='Detecção (Nome Completo)')
+                st.plotly_chart(fig_det, use_container_width=True)
+            
+            # --- TABELA FINAL ---
+            st.subheader("📋 Tabela Detalhada")
+            st.dataframe(
+                df_filtered[['Tag', 'Impacto', 'Modo', 'Mecanismo', 'Status', 'Confiança']], 
+                use_container_width=True,
+                column_config={
+                    "Confiança": st.column_config.ProgressColumn(
+                        "Confiança IA", format="%.2f", min_value=0, max_value=1,
+                    ),
+                }
+            )
+            st.download_button("📥 Exportar Dados Filtrados", df_filtered.to_csv(index=False, sep=';').encode('utf-8'), "dashboard_completo.csv", "text/csv")
+
     else:
-        st.info("⚠️ O Dashboard está vazio. Classifique algo na aba 1 para ver os dados.")
+        st.info("⚠️ O Dashboard está vazio. Vá para a aba 'Classificador' ou 'Avaliação em Massa' para gerar dados.")
 
 # === ABA 4: DICIONÁRIO ===
 with tab4:
