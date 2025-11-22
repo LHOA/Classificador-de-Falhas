@@ -182,7 +182,8 @@ encoders = artefatos['encoders']
 # --- LOGICA PRINCIPAL ---
 tab1, tab2, tab3, tab4 = st.tabs(["📝 Individual & Top 3", "🚀 Avaliação em Massa", "📊 Dashboard & Histórico", "📚 Dicionário"])
 
-# === ABA 1: INDIVIDUAL + TOP 3 ===
+
+# === ABA 1: INDIVIDUAL + FEEDBACK ===
 with tab1:
     col1, col2 = st.columns(2)
     with col1:
@@ -191,6 +192,10 @@ with tab1:
         impacto = st.selectbox("Impacto", ['S', 'D', 'U', 'X', 'None'])
     descricao = st.text_area("Descrição", height=80, placeholder="Ex: Vazamento no selo...")
 
+    # Variáveis para guardar o resultado da IA (para usar na correção depois)
+    if 'resultado_ia' not in st.session_state:
+        st.session_state.resultado_ia = None
+
     if st.button("Classificar", type="primary"):
         if not descricao:
             st.warning("Insira uma descrição.")
@@ -198,11 +203,10 @@ with tab1:
             dados = pd.DataFrame({'Tag': [tag], 'FailureImp': [impacto], 'Description': [descricao]})
             dados['TEXTO_LIMPO'] = dados['Description'].apply(limpar_texto)
 
-            # Função Top 3
+            # --- Função de Previsão (Mesma de antes) ---
             def get_top3(coluna, dic):
                 probs = modelos[coluna].predict_proba(dados)[0]
                 top3_idx = np.argsort(probs)[-3:][::-1]
-                
                 resultados = []
                 for idx in top3_idx:
                     codigo = encoders[coluna].inverse_transform([idx])[0]
@@ -211,39 +215,94 @@ with tab1:
                     resultados.append((codigo, texto, confianca))
                 return resultados
 
-            # Exibir Resultados
+            # Previsões
             res_mode = get_top3('FailMode', map_mode)
             res_det = get_top3('DetMethod', map_det)
             res_mech = get_top3('FailMech', map_mech)
 
-            st.subheader("Resultados Principais")
+            # Guardar no session state para o formulário de feedback usar
+            st.session_state.resultado_ia = {
+                'mode': res_mode[0][0],
+                'det': res_det[0][0],
+                'mech': res_mech[0][0]
+            }
+
+            # Mostrar Resultados (Igual antes)
+            st.subheader("Resultados da IA")
             c1, c2, c3 = st.columns(3)
             
             def mostrar_top3(titulo, resultados, col_obj):
                 with col_obj:
                     principal = resultados[0]
                     st.metric(titulo, principal[0], delta=f"{principal[2]:.1%}", delta_color="off")
-                    st.caption(principal[1]) # Mostra a tradução aqui
-                    
-                    with st.expander("Ver outras possibilidades"):
+                    st.caption(principal[1])
+                    with st.expander("Ver outras opções"):
                         for i, (cod, txt, prob) in enumerate(resultados[1:]):
-                            st.markdown(f"**{i+2}º Opção:** {cod} ({prob:.1%})")
-                            st.caption(txt)
+                            st.markdown(f"**{i+2}º:** {cod} ({prob:.1%}) - {txt}")
                             st.markdown("---")
 
             mostrar_top3("Modo de Falha", res_mode, c1)
             mostrar_top3("Detecção", res_det, c2)
             mostrar_top3("Mecanismo", res_mech, c3)
 
-            # Salvar Histórico
-            st.session_state.historico.append({
-                "Tag": tag, "Descrição": descricao,
-                "Modo": f"{res_mode[0][0]} - {res_mode[0][1]}", # Salva com Tradução
-                "Detecção": f"{res_det[0][0]} - {res_det[0][1]}", 
-                "Mecanismo": f"{res_mech[0][0]} - {res_mech[0][1]}", 
-                "Confiança": res_mode[0][2]
-            })
-            st.toast("Salvo no histórico!", icon="✅")
+    # --- ÁREA DE FEEDBACK / CORREÇÃO (NOVIDADE) ---
+    st.markdown("---")
+    with st.expander("❌ A classificação está errada? Ensine a IA aqui!"):
+        st.info("Se a IA errou, selecione a opção correta abaixo e clique em salvar. Isso vai melhorar o modelo futuro.")
+        
+        with st.form("form_feedback"):
+            # Pega listas de códigos para os dropdowns
+            lista_modos = list(map_mode.keys())
+            lista_dets = list(map_det.keys())
+            lista_mechs = list(map_mech.keys())
+            
+            # Tenta pré-selecionar o que a IA sugeriu (se houver)
+            idx_mode = 0
+            idx_det = 0
+            idx_mech = 0
+            
+            if st.session_state.resultado_ia:
+                try:
+                    idx_mode = lista_modos.index(st.session_state.resultado_ia['mode'])
+                    idx_det = lista_dets.index(st.session_state.resultado_ia['det'])
+                    idx_mech = lista_mechs.index(st.session_state.resultado_ia['mech'])
+                except:
+                    pass # Se não achar, deixa o primeiro
+
+            # Dropdowns de correção
+            col_f1, col_f2, col_f3 = st.columns(3)
+            
+            # Mostra Código + Descrição no dropdown para facilitar
+            def format_func_mode(x): return f"{x} - {map_mode.get(x,'')}"
+            def format_func_det(x): return f"{x} - {map_det.get(x,'')}"
+            def format_func_mech(x): return f"{x} - {map_mech.get(x,'')}"
+
+            novo_modo = col_f1.selectbox("Modo Correto", lista_modos, index=idx_mode, format_func=format_func_mode)
+            novo_det = col_f2.selectbox("Detecção Correta", lista_dets, index=idx_det, format_func=format_func_det)
+            novo_mech = col_f3.selectbox("Mecanismo Correto", lista_mechs, index=idx_mech, format_func=format_func_mech)
+
+            submit_feedback = st.form_submit_button("💾 Salvar Aprendizado")
+
+            if submit_feedback:
+                # Cria um mini dataframe com a correção
+                df_feedback = pd.DataFrame({
+                    'Tag': [tag],
+                    'Description': [descricao],
+                    'FailureImp': [impacto],
+                    'FailMode': [novo_modo],
+                    'DetMethod': [novo_det],
+                    'FailMech': [novo_mech]
+                })
+                
+                # Salva num arquivo CSV separado (modo 'append' para não apagar os anteriores)
+                arquivo_feedback = 'novos_dados_treino.csv'
+                try:
+                    # Se arquivo não existe, cria com cabeçalho. Se existe, só adiciona linha.
+                    header = not joblib.os.path.exists(arquivo_feedback)
+                    df_feedback.to_csv(arquivo_feedback, mode='a', header=header, index=False)
+                    st.success(f"Obrigado! O exemplo foi salvo em '{arquivo_feedback}'. O modelo ficará mais esperto na próxima atualização.")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
 # === ABA 2: EM MASSA ===
 with tab2:
@@ -317,3 +376,4 @@ with tab4:
         st.table(pd.DataFrame(list(map_mech.items()), columns=['Código', 'Descrição (EN/PT)']))
     with st.expander("Detecção (Detection Method)"):
         st.table(pd.DataFrame(list(map_det.items()), columns=['Código', 'Descrição (EN/PT)']))
+
