@@ -1,44 +1,21 @@
-export interface FailureRecord {
-  id: string;
+// O que você envia para a API
+export interface FalhaInput {
   tag: string;
-  description: string;
-  
-  impact: string;
-  impactCode: string;
-  
-  mode: string;
-  modeCode: string;
-  confidenceMode: number;
-
-  detection: string;
-  detectionCode: string;
-  confidenceDet: number;
-
-  mechanism: string;
-  mechanismCode: string;
-  confidenceMech: number;
-
-  // Aggregate/Overall confidence for backward compatibility or general KPIs
-  confidence: number;
-  status: 'IA' | 'Human' | 'Batch';
-  timestamp: Date;
+  descricao: string;
+  impacto: string; // "D", "S", "U" ou "X"
 }
 
-export interface PredictionResult {
-  code: string;
-  label: string;
-  confidence: number;
+// O pedacinho da resposta da IA (código + texto + confiança)
+export interface ResultadoClassificacao {
+  codigo: string;
+  descricao: string;
+  confianca: number;
 }
 
-export interface AIResponse {
-  mode: PredictionResult[];
-  detection: PredictionResult[];
-  mechanism: PredictionResult[];
-}
-
-export enum TabView {
-  DASHBOARD = 'dashboard',
-  CLASSIFIER = 'classifier',
-  BATCH = 'batch',
-  DICTIONARY = 'dictionary'
+// A resposta completa da API
+export interface RespostaAPI {
+  modo: ResultadoClassificacao;
+  deteccao: ResultadoClassificacao;
+  mecanismo: ResultadoClassificacao;
+  texto_processado: string;
 }
