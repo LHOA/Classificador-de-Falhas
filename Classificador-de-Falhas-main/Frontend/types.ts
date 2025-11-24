@@ -1,8 +1,13 @@
-// --- 1. TIPO DE NAVEGAÇÃO (O que está faltando e causando o erro) ---
-// Define as telas do seu menu lateral. Sem isso, o Sidebar.tsx quebra.
-export type TabView = 'classifier' | 'bulk' | 'dashboard' | 'dictionary';
+// --- 1. ENUM DE NAVEGAÇÃO (Mudança aqui!) ---
+// Transformamos de "type" para "enum" para que o Sidebar.tsx consiga ler "TabView.DASHBOARD"
+export enum TabView {
+  CLASSIFIER = 'classifier',
+  BATCH = 'bulk',
+  DASHBOARD = 'dashboard',
+  DICTIONARY = 'dictionary'
+}
 
-// --- 2. TIPOS DA API (Necessários para a IA) ---
+// --- 2. TIPOS DA API ---
 export interface FalhaInput {
   tag: string;
   descricao: string;
