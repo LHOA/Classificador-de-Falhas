@@ -45,6 +45,15 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
     if (isAnonymous && currentAnonCount >= ANON_LIMIT) {
         throw new Error("ANON_LIMIT_REACHED");
     }
+    // --- NOVO: Funções para Obter e Injetar Credenciais ---
+// Adicione esta função ao seu aiService.ts (em qualquer lugar)
+export const getUserId = (): { email: string | null, name: string | null } => {
+    const email = localStorage.getItem('user_email');
+    const name = localStorage.getItem('user_name');
+    return { email, name };
+};
+
+// ... (O restante do aiService.ts se mantém)
 
     // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO (Inclui credenciais se existirem)
     const bodyData = {
