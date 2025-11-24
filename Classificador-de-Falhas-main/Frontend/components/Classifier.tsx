@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { MAP_IMPACTO, MAP_MECH, MAP_MODE, MAP_DET } from '../constants';
-// CORREÇÃO 1: Importar a função com o nome correto (Português)
 import { classificarFalha } from '../services/aiService';
-// CORREÇÃO 2: Usar os tipos novos
 import { RespostaAPI, FailureRecord } from '../types';
 import { Zap, Save, Edit2, Check } from 'lucide-react';
+// Importação do Hook de tradução
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
 }
 
 const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
+  // Pega o idioma atual e a função 't' para traduzir labels simples
+  const { language, t } = useLanguage();
+
   // Form State
   const [tag, setTag] = useState('');
   const [description, setDescription] = useState('');
@@ -18,7 +21,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
   
   // UI State
   const [isLoading, setIsLoading] = useState(false);
-  // CORREÇÃO 3: O estado agora usa o tipo da resposta da API Python
   const [result, setResult] = useState<RespostaAPI | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -27,12 +29,18 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
   const [selectedMech, setSelectedMech] = useState('');
   const [selectedDet, setSelectedDet] = useState('');
 
+  // --- Função auxiliar para pegar o texto correto no dicionário ---
+  // Se existir tradução, pega. Se não, devolve o código.
+  const getLabel = (map: any, code: string) => {
+    if (!code || !map[code]) return code;
+    return map[code][language]; 
+  };
+
   const handleClassify = async () => {
     if (!description) return;
     setIsLoading(true);
     setIsEditing(false);
     try {
-      // CORREÇÃO 4: Chamada correta enviando objeto {tag, descricao, impacto}
       const aiResult = await classificarFalha({
         tag: tag,
         descricao: description,
@@ -41,14 +49,13 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
       
       setResult(aiResult);
       
-      // CORREÇÃO 5: Mapeando a resposta da API (modo/mecanismo) para o state
       setSelectedMode(aiResult.modo.codigo);
       setSelectedMech(aiResult.mecanismo.codigo);
       setSelectedDet(aiResult.deteccao.codigo);
 
     } catch (e) {
       console.error(e);
-      alert("Erro ao conectar com a IA. Verifique se o Backend está rodando.");
+      alert("Erro ao conectar com a IA.");
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +64,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
   const handleSave = () => {
     if (!result) return;
 
-    // Lógica para verificar se o humano alterou a sugestão da IA
     const modeChanged = selectedMode !== result.modo.codigo;
     const mechChanged = selectedMech !== result.mecanismo.codigo;
     const detChanged = selectedDet !== result.deteccao.codigo;
@@ -69,19 +75,18 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
       description,
       
       impactCode: impact,
-      impact: MAP_IMPACTO[impact as keyof typeof MAP_IMPACTO],
+      impact: getLabel(MAP_IMPACTO, impact), // Salva já traduzido ou código? Geralmente salva o código e traduz na exibição.
       
       modeCode: selectedMode,
-      mode: MAP_MODE[selectedMode as keyof typeof MAP_MODE],
-      // Se mudou, confiança é 100% (humano), se não, mantém a da IA
+      mode: getLabel(MAP_MODE, selectedMode),
       confidenceMode: modeChanged ? 1.0 : result.modo.confianca,
 
       mechanismCode: selectedMech,
-      mechanism: MAP_MECH[selectedMech as keyof typeof MAP_MECH],
+      mechanism: getLabel(MAP_MECH, selectedMech),
       confidenceMech: mechChanged ? 1.0 : result.mecanismo.confianca,
 
       detectionCode: selectedDet,
-      detection: MAP_DET[selectedDet as keyof typeof MAP_DET],
+      detection: getLabel(MAP_DET, selectedDet),
       confidenceDet: detChanged ? 1.0 : result.deteccao.confianca,
 
       confidence: isHumanModified ? 1.0 : result.modo.confianca,
@@ -91,7 +96,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
 
     onSave(newRecord);
     
-    // Reset
     setTag('');
     setDescription('');
     setResult(null);
@@ -108,39 +112,42 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
             <Edit2 className="w-5 h-5 text-indigo-600" />
-            Input Data
+            {t('input_title')}
           </h3>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Equipment Tag</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1">{t('label_tag')}</label>
               <input 
                 type="text" 
                 className={inputClass}
-                placeholder="e.g., P-102-A"
+                placeholder={t('placeholder_tag')}
                 value={tag}
                 onChange={(e) => setTag(e.target.value)}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Failure Impact</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1">{t('label_impact')}</label>
               <select 
                 className={inputClass}
                 value={impact}
                 onChange={(e) => setImpact(e.target.value)}
               >
                 {Object.entries(MAP_IMPACTO).map(([key, val]) => (
-                  <option key={key} value={key} className="py-1">{val}</option>
+                  <option key={key} value={key} className="py-1">
+                     {/* @ts-ignore - Garantimos que val tem a chave language */}
+                     {val[language]}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>
+              <label className="block text-sm font-bold text-slate-700 mb-1">{t('label_desc')}</label>
               <textarea 
                 className={`${inputClass} h-32 resize-none`}
-                placeholder="Describe the failure (e.g., 'High vibration detected on motor bearing due to misalignment')"
+                placeholder={t('placeholder_desc')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
@@ -154,16 +161,17 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
+                  {/* Spinner SVG */}
                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Analyzing...
+                  {t('btn_analyzing')}
                 </span>
               ) : (
                 <>
                   <Zap className="w-5 h-5" />
-                  Classify Failure
+                  {t('btn_analyze')}
                 </>
               )}
             </button>
@@ -178,13 +186,13 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <Check className="w-5 h-5 text-emerald-500" />
-                AI Results
+                {t('results_title')}
               </h3>
               <button 
                 onClick={() => setIsEditing(!isEditing)}
                 className="text-sm text-indigo-600 font-medium hover:underline"
               >
-                {isEditing ? 'Cancel Editing' : 'Incorrect? Edit'}
+                {isEditing ? t('btn_cancel_edit') : t('btn_edit')}
               </button>
             </div>
 
@@ -192,8 +200,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
               {/* Failure Mode */}
               <div className="space-y-2">
                 <div className="flex justify-between">
-                   <span className="text-sm font-semibold text-slate-500 uppercase">Failure Mode</span>
-                   {/* CORREÇÃO 6: Exibindo confiança correta */}
+                   <span className="text-sm font-semibold text-slate-500 uppercase">{t('label_mode')}</span>
                    <span className="text-xs text-emerald-600 font-bold">{(result.modo.confianca * 100).toFixed(1)}% Conf.</span>
                 </div>
                 {isEditing ? (
@@ -202,11 +209,11 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                     value={selectedMode}
                     onChange={(e) => setSelectedMode(e.target.value)}
                   >
-                    {Object.entries(MAP_MODE).map(([k, v]) => <option key={k} value={k}>{k} - {v}</option>)}
+                    {Object.entries(MAP_MODE).map(([k, v]) => <option key={k} value={k}>{k} - {v[language]}</option>)}
                   </select>
                 ) : (
                   <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-900 font-medium">
-                    {selectedMode} - {MAP_MODE[selectedMode as keyof typeof MAP_MODE]}
+                    {selectedMode} - {getLabel(MAP_MODE, selectedMode)}
                   </div>
                 )}
               </div>
@@ -214,7 +221,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                {/* Mechanism */}
                <div className="space-y-2">
                  <div className="flex justify-between">
-                    <span className="text-sm font-semibold text-slate-500 uppercase">Failure Mechanism</span>
+                    <span className="text-sm font-semibold text-slate-500 uppercase">{t('label_mech')}</span>
                     <span className="text-xs text-emerald-600 font-bold">{(result.mecanismo.confianca * 100).toFixed(1)}% Conf.</span>
                  </div>
                 {isEditing ? (
@@ -223,11 +230,11 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                     value={selectedMech}
                     onChange={(e) => setSelectedMech(e.target.value)}
                   >
-                    {Object.entries(MAP_MECH).map(([k, v]) => <option key={k} value={k}>{k} - {v}</option>)}
+                    {Object.entries(MAP_MECH).map(([k, v]) => <option key={k} value={k}>{k} - {v[language]}</option>)}
                   </select>
                 ) : (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800">
-                    {selectedMech} - {MAP_MECH[selectedMech as keyof typeof MAP_MECH]}
+                    {selectedMech} - {getLabel(MAP_MECH, selectedMech)}
                   </div>
                 )}
               </div>
@@ -235,7 +242,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                {/* Detection */}
                <div className="space-y-2">
                  <div className="flex justify-between">
-                    <span className="text-sm font-semibold text-slate-500 uppercase">Detection Method</span>
+                    <span className="text-sm font-semibold text-slate-500 uppercase">{t('label_det')}</span>
                     <span className="text-xs text-emerald-600 font-bold">{(result.deteccao.confianca * 100).toFixed(1)}% Conf.</span>
                  </div>
                 {isEditing ? (
@@ -244,11 +251,11 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                     value={selectedDet}
                     onChange={(e) => setSelectedDet(e.target.value)}
                   >
-                    {Object.entries(MAP_DET).map(([k, v]) => <option key={k} value={k}>{k} - {v}</option>)}
+                    {Object.entries(MAP_DET).map(([k, v]) => <option key={k} value={k}>{k} - {v[language]}</option>)}
                   </select>
                 ) : (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800">
-                     {selectedDet} - {MAP_DET[selectedDet as keyof typeof MAP_DET]}
+                     {selectedDet} - {getLabel(MAP_DET, selectedDet)}
                   </div>
                 )}
               </div>
@@ -260,7 +267,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-900/20 transition-all"
               >
                 <Save className="w-5 h-5" />
-                Save to Database
+                {t('btn_save')}
               </button>
             </div>
 
@@ -270,8 +277,8 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
                <Zap className="w-8 h-8 text-slate-300" />
              </div>
-             <p className="font-medium">Waiting for input...</p>
-             <p className="text-sm text-center mt-2">Enter a description on the left to generate ISO 14224 classifications.</p>
+             <p className="font-medium">{t('waiting_title')}</p>
+             <p className="text-sm text-center mt-2">{t('waiting_desc')}</p>
           </div>
         )}
       </div>
