@@ -9,3 +9,7 @@ fastapi
 uvicorn
 pydantic
 flask
+flask-cors
+numpy
+gunicorn
+
