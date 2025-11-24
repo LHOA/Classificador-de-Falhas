@@ -6,53 +6,87 @@ export type Language = 'pt' | 'en';
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string; // Função de tradução simples
+  t: (key: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('pt'); // Padrão Português
+  const [language, setLanguage] = useState<Language>('pt');
 
-  // Dicionário de textos fixos da interface (títulos, botões)
-  const translations = {
+  // --- DICIONÁRIO COMPLETO DE TRADUÇÕES ---
+  const translations: Record<Language, Record<string, string>> = {
     pt: {
-      app_name: 'Failure Map',
-      input_data: 'Dados de Entrada',
-      tag: 'Tag do Equipamento',
-      impact: 'Impacto da Falha',
-      description: 'Descrição',
-      analyze_btn: 'Classificar Falha',
-      analyzing: 'Analisando...',
-      results: 'Resultados da IA',
-      edit: 'Incorreto? Editar',
-      cancel_edit: 'Cancelar Edição',
-      save_btn: 'Salvar no Banco de Dados',
-      waiting: 'Aguardando dados...',
+      // Navegação (Menu e Títulos)
+      nav_dashboard: 'Visão Geral',
+      nav_classifier: 'Classificador IA',
+      nav_batch: 'Processar em Lote',
+      nav_dictionary: 'Dicionário de Códigos',
+      app_title: 'Failure Map',
+      profile_role: 'Eng. Mecânico | Confiabilidade',
+      
+      // Classificador - Entrada
+      input_title: 'Dados de Entrada',
+      label_tag: 'Tag do Equipamento',
+      label_impact: 'Impacto da Falha',
+      label_desc: 'Descrição da Falha',
+      placeholder_tag: 'ex: P-102-A',
+      placeholder_desc: 'Descreva a falha (ex: Vibração alta no mancal do motor devido a desalinhamento)',
+      btn_analyze: 'Classificar Falha',
+      btn_analyzing: 'Analisando...',
+      
+      // Classificador - Resultados
+      results_title: 'Resultados da IA',
+      btn_edit: 'Incorreto? Editar',
+      btn_cancel_edit: 'Cancelar Edição',
+      label_mode: 'Modo de Falha',
+      label_mech: 'Mecanismo de Falha',
+      label_det: 'Método de Detecção',
+      btn_save: 'Salvar no Banco de Dados',
+      
+      // Estado Vazio
+      waiting_title: 'Aguardando dados...',
       waiting_desc: 'Insira uma descrição à esquerda para gerar a classificação ISO 14224.',
       conf: 'Conf.'
     },
     en: {
-      app_name: 'Failure Map',
-      input_data: 'Input Data',
-      tag: 'Equipment Tag',
-      impact: 'Failure Impact',
-      description: 'Description',
-      analyze_btn: 'Classify Failure',
-      analyzing: 'Analyzing...',
-      results: 'AI Results',
-      edit: 'Incorrect? Edit',
-      cancel_edit: 'Cancel Editing',
-      save_btn: 'Save to Database',
-      waiting: 'Waiting for input...',
+      // Navigation
+      nav_dashboard: 'Analytical Overview',
+      nav_classifier: 'AI Classifier',
+      nav_batch: 'Batch Processing',
+      nav_dictionary: 'Code Dictionary',
+      app_title: 'Failure Map',
+      profile_role: 'Mech. Eng | Reliability',
+
+      // Classifier - Input
+      input_title: 'Input Data',
+      label_tag: 'Equipment Tag',
+      label_impact: 'Failure Impact',
+      label_desc: 'Failure Description',
+      placeholder_tag: 'e.g., P-102-A',
+      placeholder_desc: 'Describe the failure (e.g., High vibration detected on motor bearing due to misalignment)',
+      btn_analyze: 'Classify Failure',
+      btn_analyzing: 'Analyzing...',
+
+      // Classifier - Results
+      results_title: 'AI Results',
+      btn_edit: 'Incorrect? Edit',
+      btn_cancel_edit: 'Cancel Editing',
+      label_mode: 'Failure Mode',
+      label_mech: 'Failure Mechanism',
+      label_det: 'Detection Method',
+      btn_save: 'Save to Database',
+
+      // Empty State
+      waiting_title: 'Waiting for input...',
       waiting_desc: 'Enter a description on the left to generate ISO 14224 classifications.',
       conf: 'Conf.'
     }
   };
 
-  // Função que busca o texto
   const t = (key: string) => {
-    return translations[language][key as keyof typeof translations['pt']] || key;
+    // Se a chave não existir, retorna a própria chave para avisar que falta tradução
+    return translations[language][key] || key;
   };
 
   return (
