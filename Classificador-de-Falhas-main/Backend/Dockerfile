@@ -2,21 +2,21 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Instala dependências do sistema operacional necessárias para o XGBoost/Scikit (opcional, mas recomendado para evitar erros de build)
+# CORREÇÃO AQUI: Removemos o 'software-properties-common' que estava dando erro.
+# Mantivemos 'build-essential' (para compilar bibliotecas se precisar) e 'curl'.
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
-    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
+
+# Baixa os dados do NLTK (Stopwords)
+RUN python -m nltk.downloader stopwords
 
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Baixa os dados do NLTK durante o build para não travar na execução
-RUN python -m nltk.downloader stopwords
-
 COPY . .
 
-# O Railway injeta a variável PORT. O script abaixo usa ela ou 8501 como padrão.
+# Comando de inicialização usando a porta do Railway ($PORT)
 CMD sh -c 'streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0'
