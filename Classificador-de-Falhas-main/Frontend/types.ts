@@ -1,4 +1,5 @@
-// --- 1. ENUM DE NAVEGAÇÃO ---
+// src/types.ts
+
 export enum TabView {
   CLASSIFIER = 'classifier',
   BATCH = 'bulk',
@@ -6,27 +7,26 @@ export enum TabView {
   DICTIONARY = 'dictionary'
 }
 
-// --- 2. TIPOS DA API (O que vai e volta do Python) ---
 export interface FalhaInput {
   tag: string;
   descricao: string;
-  impacto: string; 
+  impacto: string;
 }
 
-export interface ResultadoClassificacao {
+export interface ItemClassificacao {
   codigo: string;
   descricao: string;
   confianca: number;
 }
 
+// A RESPOSTA DA API AGORA É UMA LISTA (ARRAY) DE ITENS
 export interface RespostaAPI {
-  modo: ResultadoClassificacao;
-  deteccao: ResultadoClassificacao;
-  mecanismo: ResultadoClassificacao;
+  modo: ItemClassificacao[];      
+  deteccao: ItemClassificacao[];
+  mecanismo: ItemClassificacao[];
   texto_processado: string;
 }
 
-// --- 3. TIPOS DA UI (O que o React usa para exibir/salvar) ---
 export interface FailureRecord {
   id: string;
   tag: string;
