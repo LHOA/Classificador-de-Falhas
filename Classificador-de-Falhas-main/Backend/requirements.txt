@@ -5,11 +5,4 @@ joblib==1.5.2
 nltk
 streamlit
 plotly
-fastapi
-uvicorn
-pydantic
-flask
-flask-cors
 numpy
-gunicorn
-
