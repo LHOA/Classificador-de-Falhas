@@ -1,19 +1,19 @@
 // src/components/BatchProcessor.tsx
 import React, { useState, useRef } from 'react';
-import { FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, Loader2, Lock } from 'lucide-react';
+import { FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, Loader2, Lock, Save } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { classificarFalha, getUserId } from '../services/aiService'; // Importando getUserId
+import { classificarFalha, getUserId } from '../services/aiService'; 
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
+
+// CORREÇÃO: Definir API_URL que estava faltando no escopo
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 interface BatchProcessorProps {
   onBatchComplete: (records: FailureRecord[]) => void;
   onShowRegister: () => void; 
   onShowLimitReached: () => void; 
 }
-
-// CORREÇÃO CRÍTICA: Definir API_URL que estava faltando
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached }) => {
   const { t, language } = useLanguage();
@@ -26,11 +26,9 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Obtém as credenciais do localStorage
   const { email: user_email, name: user_name } = getUserId();
   const isRegistered = !!user_email;
 
-  // --- FUNÇÃO PARA OBTER LABEL ---
   const getLabel = (map: any, code: string) => map[code] ? map[code][language] : code;
 
   // --- 1. PROCESSAMENTO DO ARQUIVO CSV ---
@@ -54,10 +52,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         
         const data = lines.slice(1).map((line, index) => {
           const cols = line.split(separator);
-          
-          let tag = 'N/A';
-          let desc = '';
-          let imp = 'X';
+          let tag = 'N/A'; let desc = ''; let imp = 'X';
 
           if (cols.length >= 3) {
             tag = cols[0].trim();
@@ -81,14 +76,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
   // --- 2. ENVIO PARA A IA (LOOP) ---
   const processBatch = async () => {
-    if (previewData.length === 0) return;
-    
-    // VERIFICAÇÃO CRÍTICA DE REGISTRO
-    if (!isRegistered) {
-      setError("O processamento em lote requer registro. Por favor, registre-se na aba Classificador.");
-      onShowRegister(); 
-      return;
-    }
+    if (previewData.length === 0 || !isRegistered) return; // Checagem de segurança
     
     setProcessing(true);
     setProgress(0);
@@ -108,7 +96,8 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
             return;
         }
         if (!batchCheckResponse.ok) {
-            throw new Error("Erro ao reservar a quota para o lote.");
+            const errorData = await batchCheckResponse.json();
+            throw new Error(errorData.detail || "Erro ao reservar quota.");
         }
 
     } catch (err: any) {
@@ -117,13 +106,13 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         return;
     }
 
+
     // 2. LOOP PRINCIPAL DE PROCESSAMENTO
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
       let hasQuotaError = false;
 
       try {
-        // INJEÇÃO DE CREDENCIAIS: email e nome são enviados com CADA requisição
         const aiRes: RespostaAPI = await classificarFalha({
           tag: row.tag,
           descricao: row.description,
@@ -132,7 +121,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
           user_name: user_name
         });
         
-        // Conversão para FailureRecord (usando Top 1)
         const record: FailureRecord = {
           id: Date.now() + i.toString(), tag: row.tag, description: row.description,
           impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact),
@@ -144,8 +132,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         results.push(record);
 
       } catch (err: any) {
-        console.error(`Erro na linha ${i + 1}. Detalhes:`, err);
-        setError(`Erro na linha ${i + 1}. Processamento interrompido. Verifique o console.`);
+        console.error(`Erro na linha ${i + 1}.`, err);
 
         // Se o erro for de Quota (403), paramos o loop
         if (err.message === "QUOTA_EXCEEDED") {
@@ -167,30 +154,51 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   };
 
   // --- 3. EXPORTAR CSV ---
-  const downloadResults = () => { /* ... */ };
+  const downloadResults = () => { 
+    if (processedData.length === 0) return;
+    const header = ["Tag", "Description", "Impact", "Mode Code", "Mode", "Mech Code", "Mech", "Detection", "Confidence"];
+    const rows = processedData.map(r => [
+      r.tag,
+      `"${r.description.replace(/"/g, '""')}"`, 
+      r.impactCode,
+      r.modeCode,
+      r.mode,
+      r.mechanismCode,
+      r.mechanism,
+      r.detection,
+      (r.confidence * 100).toFixed(1) + '%'
+    ]);
 
+    const separator = ','; 
+    const csvContent = ["\uFEFF" + header.join(separator), ...rows.map(r => r.join(separator))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `ISO14224_Results_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       
       {/* Header e Upload */}
       <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm text-center">
-        <div className="mx-auto w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4"><FileSpreadsheet className="w-8 h-8" /></div>
+        {/* ... (UI elements) ... */}
         <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('nav_batch')}</h2>
-        <p className="text-slate-500 max-w-lg mx-auto mb-8">Faça upload de um arquivo CSV contendo as colunas: <code>Tag</code>, <code>Description</code>, <code>FailureImp</code>.</p>
 
-        {/* VERIFICAÇÃO DE REGISTRO E BOTÕES */}
         <div className="flex justify-center gap-4">
           <input type="file" accept=".csv,.txt" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
           
           <button onClick={() => fileInputRef.current?.click()} className="px-6 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg flex items-center gap-2 transition-colors"><Upload className="w-5 h-5" /> Selecionar CSV</button>
           
+          {/* BOTÃO PARA REGISTRO (Usuário não registrado) */}
           {file && !isRegistered && !processing && (
             <button onClick={onShowRegister} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg flex items-center gap-2 shadow-lg hover:bg-red-700">
               <Lock className="w-5 h-5" /> {t('nav_batch')} (Exige Registro)
             </button>
           )}
 
+          {/* BOTÃO DE PROCESSAR (Usuário registrado) */}
           {file && isRegistered && !processing && processedData.length === 0 && (
              <button onClick={processBatch} className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg flex items-center gap-2 shadow-lg shadow-indigo-200">
                <Play className="w-5 h-5" /> Processar {previewData.length} Itens
@@ -202,12 +210,12 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
            )}
         </div>
         
+        {/* ... (Mensagens de status) ... */}
         {file && <p className="mt-4 text-sm font-medium text-slate-600 flex items-center justify-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500"/> Arquivo carregado: {file.name}</p>}
         {error && <p className="mt-4 text-sm font-bold text-red-500 flex items-center justify-center gap-2"><AlertCircle className="w-4 h-4"/> {error}</p>}
       </div>
 
-      {/* Barra de Progresso e Tabela */}
-      {/* ... (Tabela de Resultados) ... */}
+      {/* ... (Barra de Progresso e Tabela) ... */}
     </div>
   );
 };
