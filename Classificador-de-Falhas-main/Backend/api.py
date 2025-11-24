@@ -61,6 +61,13 @@ try:
     encoders = artefatos['encoders']
     vectorizer = artefatos['vectorizer'] # <--- NOVO: CARREGA O VETORIZADOR
     
+
+except Exception as e:
+    modelos = {}
+    encoders = {}
+    vectorizer = None
+    
+    print(f"ERRO CRÍTICO: Falha ao carregar artefatos ML: {e}. A IA não funcionará.")
  # --- DICIONÁRIOS (Versão Completa e Limpa) ---
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
@@ -133,13 +140,6 @@ map_mode = {
     'ISB': 'Information security breach (Violação de segurança da informação)', 'ILP': 'Internal leakage - process medium (Vazamento interno - fluido de processo)', 
     'EFA': 'Electronic failure (Falha eletrônica)'
 }
-except Exception as e:
-    modelos = {}
-    encoders = {}
-    vectorizer = None
-    map_mode, map_mech, map_det = {}, {}, {}
-    print(f"ERRO CRÍTICO: Falha ao carregar artefatos ML: {e}. A IA não funcionará.")
-
 
 # --- CONFIGURAÇÃO DO FASTAPI E CORS ---
 app = FastAPI(title="API Classificador de Falhas")
@@ -305,3 +305,4 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
 @app.get("/")
 def health_check():
     return {"status": "ok", "mensagem": "API Classificador ISO 14224 está rodando"}
+
