@@ -1,22 +1,14 @@
-// src/services/aiService.ts (Final Version)
 import { FalhaInput, RespostaAPI } from "../types";
-
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-// Interface interna para dados de registro
-interface UserCredentials {
-    email: string | null;
-    name: string | null;
-}
-
 const ANON_LIMIT = 5;
 
-// Obtém credenciais salvas no localStorage
-export const getUserId = (): UserCredentials => {
+export const getUserId = () => {
     const email = localStorage.getItem('user_email');
     const name = localStorage.getItem('user_name');
     return { email, name };
-}
+};
+
+// ... (restante da função classificarFalha, inalterada)
 
 // Obtém o contador anônimo
 const getAnonCount = (): number => {
