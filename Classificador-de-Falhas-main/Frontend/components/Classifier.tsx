@@ -7,9 +7,13 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
+  // NOVAS PROPS para gerenciar o fluxo de quota
+  onShowRegister: () => void;
+  onShowLimitReached: () => void;
+  isQuotaEnforced: boolean; // Flag que o pai passa para desabilitar o botão se o limite foi atingido
 }
 
-const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
+const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowLimitReached, isQuotaEnforced }) => {
   const { language, t } = useLanguage();
 
   const [tag, setTag] = useState('');
@@ -18,19 +22,23 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<RespostaAPI | null>(null);
   
-  // Agora armazenamos a SELEÇÃO DO USUÁRIO (pode ser a 1ª, 2ª ou 3ª da IA)
   const [selectedMode, setSelectedMode] = useState('');
   const [selectedMech, setSelectedMech] = useState('');
   const [selectedDet, setSelectedDet] = useState('');
 
   const getLabel = (map: any, code: string) => {
     if (!code || !map[code]) return code;
+    // @ts-ignore
     return map[code][language];
   };
 
+  // --- LÓGICA DE CLASSIFICAÇÃO ATUALIZADA ---
   const handleClassify = async () => {
-    if (!description) return;
+    if (!description || isLoading) return;
+
     setIsLoading(true);
+    setResult(null); 
+    
     try {
       const aiResult = await classificarFalha({
         tag: tag,
@@ -40,33 +48,42 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
       
       setResult(aiResult);
       
-      // Por padrão, seleciona a Top 1 (índice 0)
       setSelectedMode(aiResult.modo[0].codigo);
       setSelectedMech(aiResult.mecanismo[0].codigo);
       setSelectedDet(aiResult.deteccao[0].codigo);
 
-    } catch (e) {
-      console.error(e);
-      alert("Erro ao conectar com a IA.");
+    } catch (e: any) {
+        // --- NOVO TRATAMENTO DE ERROS DE QUOTA ---
+        if (e.message === "ANON_LIMIT_REACHED" || e.message === "SHOW_REGISTER_MODAL") {
+            // Se atingiu o limite anônimo ou precisa se registrar agora
+            onShowRegister(); 
+        } else if (e.message === "QUOTA_EXCEEDED") {
+            // Se o limite de 10 usos foi atingido (erro do backend)
+            onShowLimitReached(); 
+        } else {
+            // Erro de conexão ou API genérico
+            console.error("API Error:", e);
+            alert(`Erro na Classificação. Verifique sua conexão. (${e.message})`);
+        }
     } finally {
       setIsLoading(false);
     }
   };
+  // --- FIM DA LÓGICA DE CLASSIFICAÇÃO ATUALIZADA ---
+
 
   const handleSave = () => {
     if (!result) return;
 
-    // Verifica se a escolha atual bate com a Top 1 da IA
+    const getConf = (list: any[], code: string) => {
+       const item = list.find(x => x.codigo === code);
+       return item ? item.confianca : 1.0; 
+    };
+
     const modeIsTop1 = selectedMode === result.modo[0].codigo;
     const mechIsTop1 = selectedMech === result.mecanismo[0].codigo;
     const detIsTop1 = selectedDet === result.deteccao[0].codigo;
     const isHumanModified = !modeIsTop1 || !mechIsTop1 || !detIsTop1;
-
-    // Encontra a confiança da opção que o usuário escolheu (seja a 1ª, 2ª ou 3ª)
-    const getConf = (list: any[], code: string) => {
-       const item = list.find(x => x.codigo === code);
-       return item ? item.confianca : 1.0; // Se não achar (edição manual total), assume 100%
-    };
 
     const newRecord: FailureRecord = {
       id: Date.now().toString(),
@@ -96,22 +113,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
     setTag(''); setDescription(''); setResult(null);
   };
 
-  // Componente Reutilizável de Dropdown Inteligente
-  const AIDropdown = ({ 
-    label, 
-    value, 
-    onChange, 
-    optionsAI, 
-    mapDictionary 
-  }: { 
-    label: string, 
-    value: string, 
-    onChange: (val: string) => void, 
-    optionsAI: any[], 
-    mapDictionary: any 
-  }) => {
-    
-    // Pega o item selecionado para mostrar a confiança dele
+  const AIDropdown = ({ label, value, onChange, optionsAI, mapDictionary }: { label: string, value: string, onChange: (val: string) => void, optionsAI: any[], mapDictionary: any }) => {
     const selectedItemAI = optionsAI.find(opt => opt.codigo === value);
     const confidenceDisplay = selectedItemAI 
       ? (selectedItemAI.confianca * 100).toFixed(1) + '%' 
@@ -121,10 +123,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
       <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
         <div className="flex justify-between items-center mb-2">
           <span className="text-sm font-bold text-slate-700 uppercase">{label}</span>
-          <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-            confidenceDisplay === 'Manual' ? 'bg-slate-200 text-slate-600' : 
-            parseFloat(confidenceDisplay) > 80 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-          }`}>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded ${confidenceDisplay === 'Manual' ? 'bg-slate-200 text-slate-600' : parseFloat(confidenceDisplay) > 80 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
             {confidenceDisplay} Conf.
           </span>
         </div>
@@ -135,8 +134,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
             onChange={(e) => onChange(e.target.value)}
             className="w-full appearance-none p-3 bg-white border border-slate-300 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none pr-10"
           >
-            {/* Opções da IA (Top 3) */}
-            <optgroup label="Sugestões da IA (Ranking)">
+            <optgroup label={t('results_title')}>
               {optionsAI.map((opt, idx) => (
                 <option key={opt.codigo} value={opt.codigo}>
                   #{idx + 1}: {getLabel(mapDictionary, opt.codigo)} ({ (opt.confianca * 100).toFixed(0) }%)
@@ -144,7 +142,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
               ))}
             </optgroup>
             
-            {/* Todas as outras opções (Caso o usuário queira mudar totalmente) */}
             <optgroup label="Outras Opções">
               {Object.entries(mapDictionary)
                 .filter(([k]) => !optionsAI.find(opt => opt.codigo === k))
@@ -170,28 +167,30 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
             <Edit2 className="w-5 h-5 text-indigo-600" /> {t('input_title')}
           </h3>
           <div className="space-y-4">
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-1">{t('label_tag')}</label>
-               <input type="text" className={inputClass} value={tag} onChange={e => setTag(e.target.value)} placeholder={t('placeholder_tag')} />
-             </div>
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-1">{t('label_impact')}</label>
-               <select className={inputClass} value={impact} onChange={e => setImpact(e.target.value)}>
-                 {Object.entries(MAP_IMPACTO).map(([k, v]: any) => <option key={k} value={k}>{v[language]}</option>)}
-               </select>
-             </div>
-             <div>
-               <label className="block text-sm font-bold text-slate-700 mb-1">{t('label_desc')}</label>
-               <textarea className={`${inputClass} h-32 resize-none`} value={description} onChange={e => setDescription(e.target.value)} placeholder={t('placeholder_desc')} />
-             </div>
-             <button onClick={handleClassify} disabled={!description || isLoading} className={`w-full py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2 ${!description || isLoading ? 'bg-slate-300' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg'}`}>
+             {/* ... (Inputs Tag, Impact, Description) ... */}
+             <input type="text" className={inputClass} value={tag} onChange={e => setTag(e.target.value)} placeholder={t('placeholder_tag')} />
+             <select className={inputClass} value={impact} onChange={e => setImpact(e.target.value)}>{Object.entries(MAP_IMPACTO).map(([k, v]: any) => <option key={k} value={k}>{v[language]}</option>)}</select>
+             <textarea className={`${inputClass} h-32 resize-none`} value={description} onChange={e => setDescription(e.target.value)} placeholder={t('placeholder_desc')} />
+
+             {/* BOTÃO DE CLASSIFICAÇÃO */}
+             <button 
+               onClick={handleClassify} 
+               disabled={!description || isLoading || isQuotaEnforced} 
+               className={`w-full py-3 rounded-lg font-bold text-white flex items-center justify-center gap-2 ${!description || isLoading || isQuotaEnforced ? 'bg-slate-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg'}`}
+             >
                 {isLoading ? t('btn_analyzing') : <><Zap className="w-5 h-5" />{t('btn_analyze')}</>}
              </button>
+             
+             {isQuotaEnforced && (
+                 <p className="text-sm font-bold text-red-500 text-center">
+                     Limite de uso atingido.
+                 </p>
+             )}
           </div>
         </div>
       </div>
 
-      {/* Coluna da Direita (Resultados com Dropdown) */}
+      {/* Coluna da Direita (Resultados) */}
       <div className="lg:col-span-7">
         {result ? (
           <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm h-full flex flex-col">
@@ -202,31 +201,13 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
             </div>
 
             <div className="space-y-4 flex-1">
-              <AIDropdown 
-                label={t('label_mode')} 
-                value={selectedMode} 
-                onChange={setSelectedMode} 
-                optionsAI={result.modo} 
-                mapDictionary={MAP_MODE} 
-              />
-              <AIDropdown 
-                label={t('label_mech')} 
-                value={selectedMech} 
-                onChange={setSelectedMech} 
-                optionsAI={result.mecanismo} 
-                mapDictionary={MAP_MECH} 
-              />
-              <AIDropdown 
-                label={t('label_det')} 
-                value={selectedDet} 
-                onChange={setSelectedDet} 
-                optionsAI={result.deteccao} 
-                mapDictionary={MAP_DET} 
-              />
+              <AIDropdown label={t('label_mode')} value={selectedMode} onChange={setSelectedMode} optionsAI={result.modo} mapDictionary={MAP_MODE} />
+              <AIDropdown label={t('label_mech')} value={selectedMech} onChange={setSelectedMech} optionsAI={result.mecanismo} mapDictionary={MAP_MECH} />
+              <AIDropdown label={t('label_det')} value={selectedDet} onChange={setSelectedDet} optionsAI={result.deteccao} mapDictionary={MAP_DET} />
             </div>
 
             <div className="mt-8 pt-6 border-t border-slate-100">
-              <button onClick={handleSave} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 shadow-lg">
+              <button onClick={handleSave} className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 shadow-lg">
                 <Save className="w-5 h-5" /> {t('btn_save')}
               </button>
             </div>
