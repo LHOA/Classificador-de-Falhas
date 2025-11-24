@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { MAP_IMPACTO, MAP_MECH, MAP_MODE, MAP_DET } from '../constants';
-import { classifyFailure } from '../services/aiService';
-import { AIResponse, FailureRecord } from '../types';
+// CORREÇÃO 1: Importar a função com o nome correto (Português)
+import { classificarFalha } from '../services/aiService';
+// CORREÇÃO 2: Usar os tipos novos
+import { RespostaAPI, FailureRecord } from '../types';
 import { Zap, Save, Edit2, Check } from 'lucide-react';
 
 interface ClassifierProps {
@@ -16,10 +18,11 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
   
   // UI State
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<AIResponse | null>(null);
+  // CORREÇÃO 3: O estado agora usa o tipo da resposta da API Python
+  const [result, setResult] = useState<RespostaAPI | null>(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Edited selections (if user disagrees with AI)
+  // Edited selections
   const [selectedMode, setSelectedMode] = useState('');
   const [selectedMech, setSelectedMech] = useState('');
   const [selectedDet, setSelectedDet] = useState('');
@@ -29,15 +32,23 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
     setIsLoading(true);
     setIsEditing(false);
     try {
-      const aiResult = await classifyFailure(tag, impact, description);
+      // CORREÇÃO 4: Chamada correta enviando objeto {tag, descricao, impacto}
+      const aiResult = await classificarFalha({
+        tag: tag,
+        descricao: description,
+        impacto: impact
+      });
+      
       setResult(aiResult);
       
-      // Set default selections to top AI prediction
-      setSelectedMode(aiResult.mode[0].code);
-      setSelectedMech(aiResult.mechanism[0].code);
-      setSelectedDet(aiResult.detection[0].code);
+      // CORREÇÃO 5: Mapeando a resposta da API (modo/mecanismo) para o state
+      setSelectedMode(aiResult.modo.codigo);
+      setSelectedMech(aiResult.mecanismo.codigo);
+      setSelectedDet(aiResult.deteccao.codigo);
+
     } catch (e) {
       console.error(e);
+      alert("Erro ao conectar com a IA. Verifique se o Backend está rodando.");
     } finally {
       setIsLoading(false);
     }
@@ -46,10 +57,10 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
   const handleSave = () => {
     if (!result) return;
 
-    // Check if user modified the specific fields to determine confidence logic
-    const modeChanged = selectedMode !== result.mode[0].code;
-    const mechChanged = selectedMech !== result.mechanism[0].code;
-    const detChanged = selectedDet !== result.detection[0].code;
+    // Lógica para verificar se o humano alterou a sugestão da IA
+    const modeChanged = selectedMode !== result.modo.codigo;
+    const mechChanged = selectedMech !== result.mecanismo.codigo;
+    const detChanged = selectedDet !== result.deteccao.codigo;
     const isHumanModified = modeChanged || mechChanged || detChanged;
 
     const newRecord: FailureRecord = {
@@ -58,22 +69,22 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
       description,
       
       impactCode: impact,
-      impact: MAP_IMPACTO[impact],
-      // Impact is manual input, so we consider it 100% confidence from the user
+      impact: MAP_IMPACTO[impact as keyof typeof MAP_IMPACTO],
       
       modeCode: selectedMode,
-      mode: MAP_MODE[selectedMode],
-      confidenceMode: modeChanged ? 1.0 : result.mode[0].confidence,
+      mode: MAP_MODE[selectedMode as keyof typeof MAP_MODE],
+      // Se mudou, confiança é 100% (humano), se não, mantém a da IA
+      confidenceMode: modeChanged ? 1.0 : result.modo.confianca,
 
       mechanismCode: selectedMech,
-      mechanism: MAP_MECH[selectedMech],
-      confidenceMech: mechChanged ? 1.0 : result.mechanism[0].confidence,
+      mechanism: MAP_MECH[selectedMech as keyof typeof MAP_MECH],
+      confidenceMech: mechChanged ? 1.0 : result.mecanismo.confianca,
 
       detectionCode: selectedDet,
-      detection: MAP_DET[selectedDet],
-      confidenceDet: detChanged ? 1.0 : result.detection[0].confidence,
+      detection: MAP_DET[selectedDet as keyof typeof MAP_DET],
+      confidenceDet: detChanged ? 1.0 : result.deteccao.confianca,
 
-      confidence: isHumanModified ? 1.0 : result.mode[0].confidence, // Overall confidence
+      confidence: isHumanModified ? 1.0 : result.modo.confianca,
       status: isHumanModified ? 'Human' : 'IA',
       timestamp: new Date()
     };
@@ -87,7 +98,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
     setIsEditing(false);
   };
 
-  // High Contrast Input Class
   const inputClass = "w-full p-2.5 bg-slate-50 border border-slate-400 rounded-lg text-slate-900 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-600 outline-none transition-all placeholder:text-slate-400";
 
   return (
@@ -183,7 +193,8 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
               <div className="space-y-2">
                 <div className="flex justify-between">
                    <span className="text-sm font-semibold text-slate-500 uppercase">Failure Mode</span>
-                   <span className="text-xs text-emerald-600 font-bold">{(result.mode[0].confidence * 100).toFixed(1)}% Conf.</span>
+                   {/* CORREÇÃO 6: Exibindo confiança correta */}
+                   <span className="text-xs text-emerald-600 font-bold">{(result.modo.confianca * 100).toFixed(1)}% Conf.</span>
                 </div>
                 {isEditing ? (
                   <select 
@@ -195,7 +206,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                   </select>
                 ) : (
                   <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-900 font-medium">
-                    {selectedMode} - {MAP_MODE[selectedMode]}
+                    {selectedMode} - {MAP_MODE[selectedMode as keyof typeof MAP_MODE]}
                   </div>
                 )}
               </div>
@@ -204,7 +215,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                <div className="space-y-2">
                  <div className="flex justify-between">
                     <span className="text-sm font-semibold text-slate-500 uppercase">Failure Mechanism</span>
-                    <span className="text-xs text-emerald-600 font-bold">{(result.mechanism[0].confidence * 100).toFixed(1)}% Conf.</span>
+                    <span className="text-xs text-emerald-600 font-bold">{(result.mecanismo.confianca * 100).toFixed(1)}% Conf.</span>
                  </div>
                 {isEditing ? (
                   <select 
@@ -216,7 +227,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                   </select>
                 ) : (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800">
-                    {selectedMech} - {MAP_MECH[selectedMech]}
+                    {selectedMech} - {MAP_MECH[selectedMech as keyof typeof MAP_MECH]}
                   </div>
                 )}
               </div>
@@ -225,7 +236,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                <div className="space-y-2">
                  <div className="flex justify-between">
                     <span className="text-sm font-semibold text-slate-500 uppercase">Detection Method</span>
-                    <span className="text-xs text-emerald-600 font-bold">{(result.detection[0].confidence * 100).toFixed(1)}% Conf.</span>
+                    <span className="text-xs text-emerald-600 font-bold">{(result.deteccao.confianca * 100).toFixed(1)}% Conf.</span>
                  </div>
                 {isEditing ? (
                   <select 
@@ -237,7 +248,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
                   </select>
                 ) : (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800">
-                     {selectedDet} - {MAP_DET[selectedDet]}
+                     {selectedDet} - {MAP_DET[selectedDet as keyof typeof MAP_DET]}
                   </div>
                 )}
               </div>
