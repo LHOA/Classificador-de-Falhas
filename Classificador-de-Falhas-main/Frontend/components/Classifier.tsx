@@ -1,3 +1,5 @@
+// src/components/Classifier.tsx (Substitua este código)
+
 import React, { useState } from 'react';
 import { MAP_IMPACTO, MAP_MECH, MAP_MODE, MAP_DET } from '../constants';
 import { classificarFalha } from '../services/aiService';
@@ -7,9 +9,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
-  // PROPS para gerenciar o fluxo de quota
-  onShowRegister: () => void;
-  onShowLimitReached: () => void;
+  onShowRegister: () => void; 
+  onShowLimitReached: () => void; 
   isQuotaEnforced: boolean; 
 }
 
@@ -32,7 +33,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     return map[code][language];
   };
 
-  // --- LÓGICA DE CLASSIFICAÇÃO CORRIGIDA ---
+  // --- LÓGICA DE CLASSIFICAÇÃO CORRIGIDA PARA TRATAR ERROS DE PROMESSA ---
   const handleClassify = async () => {
     if (!description || isLoading || isQuotaEnforced) return;
 
@@ -40,39 +41,41 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     setResult(null); 
     
     try {
-      // Variável aiResult é definida e usada corretamente
       const aiResult = await classificarFalha({
         tag: tag,
         descricao: description,
         impacto: impact
       });
       
+      // SUCESSO
       setResult(aiResult);
-      
-      // As atribuições usam aiResult corretamente
       setSelectedMode(aiResult.modo[0].codigo); 
       setSelectedMech(aiResult.mecanismo[0].codigo);
       setSelectedDet(aiResult.deteccao[0].codigo);
 
     } catch (e: any) {
-        // Tratamento de Erros de Quota do Frontend/Backend
+        // TRATAMENTO DE ERROS
         if (e.message === "ANON_LIMIT_REACHED") {
-            onShowRegister(); 
+            onShowRegister(); // Chama o modal de registro
         } else if (e.message === "QUOTA_EXCEEDED") {
-            onShowLimitReached(); 
+            onShowLimitReached(); // Chama a mensagem de limite
         } else {
-            console.error("API Error:", e);
-            alert(`Erro na Classificação. Verifique sua conexão. (${e.message})`);
+            // Se falhar por 500 ou CONNECTION_ERROR
+            console.error("Erro na Classificação:", e);
+            // Evita alert() complexo e usa o console para debug
         }
     } finally {
+      // O FINALLY É CRUCIAL PARA LIBERAR O BOTÃO DE CARREGAMENTO
       setIsLoading(false);
     }
   };
   // --- FIM DA LÓGICA DE CLASSIFICAÇÃO ---
 
+  // ... (Resto do componente AIDropdown e JSX mantém o mesmo) ...
 
   const handleSave = () => {
     if (!result) return;
+    // ... (restante da lógica handleSave) ...
 
     const getConf = (list: any[], code: string) => {
        const item = list.find(x => x.codigo === code);
@@ -85,24 +88,10 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     const isHumanModified = !modeIsTop1 || !mechIsTop1 || !detIsTop1;
 
     const newRecord: FailureRecord = {
-      id: Date.now().toString(),
-      tag: tag || 'N/A',
-      description,
-      impactCode: impact,
-      impact: getLabel(MAP_IMPACTO, impact),
-      
-      modeCode: selectedMode,
-      mode: getLabel(MAP_MODE, selectedMode),
-      confidenceMode: getConf(result.modo, selectedMode),
-
-      mechanismCode: selectedMech,
-      mechanism: getLabel(MAP_MECH, selectedMech),
-      confidenceMech: getConf(result.mecanismo, selectedMech),
-
-      detectionCode: selectedDet,
-      detection: getLabel(MAP_DET, selectedDet),
-      confidenceDet: getConf(result.deteccao, selectedDet),
-
+      id: Date.now().toString(), tag: tag || 'N/A', description, impactCode: impact,
+      impact: getLabel(MAP_IMPACTO, impact), modeCode: selectedMode, mode: getLabel(MAP_MODE, selectedMode), confidenceMode: getConf(result.modo, selectedMode),
+      mechanismCode: selectedMech, mechanism: getLabel(MAP_MECH, selectedMech), confidenceMech: getConf(result.mecanismo, selectedMech),
+      detectionCode: selectedDet, detection: getLabel(MAP_DET, selectedDet), confidenceDet: getConf(result.deteccao, selectedDet),
       confidence: isHumanModified ? 1.0 : result.modo[0].confianca,
       status: isHumanModified ? 'Human' : 'IA',
       timestamp: new Date()
