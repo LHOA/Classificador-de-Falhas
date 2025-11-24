@@ -2,23 +2,25 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# 1. Instala dependências do sistema
+# Instala dependências do sistema
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Copia o requirements PRIMEIRO
+# Copia requirements primeiro
 COPY requirements.txt .
 
-# 3. Instala as bibliotecas (incluindo o NLTK)
+# Instala bibliotecas
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. AGORA baixa os dados do NLTK (pois a biblioteca já foi instalada no passo anterior)
+# Baixa stopwords do NLTK (necessário após instalar nltk)
 RUN python -m nltk.downloader stopwords
 
-# 5. Copia o restante do código
+# Copia o código da API e o modelo
 COPY . .
 
-# 6. Comando final
-CMD sh -c 'streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0'
+# Comando para rodar a API (Uvicorn)
+# O host 0.0.0.0 permite acesso externo
+# A variável PORT é injetada pelo Railway
+CMD sh -c 'uvicorn api:app --host 0.0.0.0 --port ${PORT:-8000}'
