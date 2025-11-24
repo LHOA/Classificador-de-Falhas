@@ -1,85 +1,121 @@
 import React, { useState } from 'react';
-import { MAP_MODE, MAP_MECH, MAP_DET } from '../constants';
-import { Search } from 'lucide-react';
+import { BookOpen, Search } from 'lucide-react';
+import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
+import { useLanguage } from '../contexts/LanguageContext';
+
+type DictionaryTab = 'mode' | 'mech' | 'det' | 'impact';
 
 const Dictionary: React.FC = () => {
-  const [activeCategory, setActiveCategory] = useState<'MODE' | 'MECH' | 'DET'>('MODE');
+  const { language, t } = useLanguage(); // Usa o idioma atual
+  const [activeTab, setActiveTab] = useState<DictionaryTab>('mode');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const getData = () => {
-    switch (activeCategory) {
-      case 'MODE': return MAP_MODE;
-      case 'MECH': return MAP_MECH;
-      case 'DET': return MAP_DET;
-      default: return {};
+  // Seleciona o mapa correto com base na aba
+  const getCurrentMap = () => {
+    switch (activeTab) {
+      case 'mode': return MAP_MODE;
+      case 'mech': return MAP_MECH;
+      case 'det': return MAP_DET;
+      case 'impact': return MAP_IMPACTO;
+      default: return MAP_MODE;
     }
   };
 
-  const filteredData = Object.entries(getData()).filter(([code, desc]) => 
-    code.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    desc.toLowerCase().includes(searchTerm.toLowerCase())
+  const currentMap = getCurrentMap();
+
+  // Filtra os itens baseado na busca e no idioma atual
+  const filteredItems = Object.entries(currentMap).filter(([code, val]) => {
+    // val é um objeto {pt: '...', en: '...'}
+    // Precisamos buscar dentro do idioma correto
+    const text = val[language].toLowerCase(); 
+    const search = searchTerm.toLowerCase();
+    return code.toLowerCase().includes(search) || text.includes(search);
+  });
+
+  const TabButton = ({ id, label }: { id: DictionaryTab, label: string }) => (
+    <button
+      onClick={() => setActiveTab(id)}
+      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+        ${activeTab === id 
+          ? 'bg-indigo-600 text-white shadow-md' 
+          : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'}`}
+    >
+      {label}
+    </button>
   );
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="p-6 border-b border-slate-200">
-        <h3 className="text-xl font-bold text-slate-800 mb-4">ISO 14224 Dictionary</h3>
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Tabs */}
-          <div className="flex p-1 bg-slate-100 rounded-lg">
-            {(['MODE', 'MECH', 'DET'] as const).map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-all
-                  ${activeCategory === cat ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}
-                `}
-              >
-                {cat === 'MODE' ? 'Failure Modes' : cat === 'MECH' ? 'Mechanisms' : 'Detection'}
-              </button>
-            ))}
+    <div className="space-y-6">
+      {/* Header e Busca */}
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">
+                {language === 'pt' ? 'Catálogo ISO 14224' : 'ISO 14224 Catalog'}
+              </h3>
+              <p className="text-sm text-slate-500">
+                {language === 'pt' ? 'Referência completa de códigos' : 'Complete code reference'}
+              </p>
+            </div>
           </div>
 
-          {/* Search */}
-          <div className="relative w-full md:w-64">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
+            <input
               type="text"
-              placeholder="Search codes..."
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+              placeholder={language === 'pt' ? "Buscar código ou descrição..." : "Search code or description..."}
+              className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full md:w-64"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </div>
+
+        {/* Abas */}
+        <div className="flex flex-wrap gap-2">
+          <TabButton id="mode" label={t('label_mode')} />
+          <TabButton id="mech" label={t('label_mech')} />
+          <TabButton id="det" label={t('label_det')} />
+          <TabButton id="impact" label={t('label_impact')} />
+        </div>
       </div>
 
-      <div className="max-h-[600px] overflow-y-auto">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 sticky top-0">
-            <tr>
-              <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase w-32">Code</th>
-              <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Description</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filteredData.length > 0 ? (
-              filteredData.map(([code, desc]) => (
-                <tr key={code} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-3 font-mono text-sm text-indigo-600 font-medium">{code}</td>
-                  <td className="px-6 py-3 text-sm text-slate-700">{desc}</td>
-                </tr>
-              ))
-            ) : (
+      {/* Tabela de Resultados */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase font-semibold text-slate-500">
               <tr>
-                <td colSpan={2} className="px-6 py-8 text-center text-slate-400">
-                  No matching codes found.
-                </td>
+                <th className="p-4 w-32">Code</th>
+                <th className="p-4">Description ({language.toUpperCase()})</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredItems.length > 0 ? (
+                filteredItems.map(([code, val]) => (
+                  <tr key={code} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-mono font-bold text-indigo-600 bg-indigo-50/50">
+                      {code}
+                    </td>
+                    <td className="p-4 text-slate-700 font-medium">
+                      {val[language]} {/* Aqui exibe o texto correto */}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={2} className="p-8 text-center text-slate-400">
+                    {language === 'pt' ? 'Nenhum código encontrado.' : 'No codes found.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
