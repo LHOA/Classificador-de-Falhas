@@ -1,5 +1,4 @@
-// src/services/aiService.ts
-
+// src/services/aiService.ts (Versão Final Corrigida)
 import { FalhaInput, RespostaAPI } from "../types";
 
 // Usa variável de ambiente (VITE_API_URL)
@@ -13,12 +12,13 @@ interface UserCredentials {
 
 const ANON_LIMIT = 5;
 
-// Obtém credenciais salvas no localStorage
-const getUserCredentials = (): UserCredentials | null => {
+// --- FUNÇÃO CORRIGIDA PARA OBTER CREDENCIAIS ---
+// Esta função é chamada pelo BatchProcessor e Classifier
+export const getUserId = (): { email: string | null, name: string | null } => {
     const email = localStorage.getItem('user_email');
     const name = localStorage.getItem('user_name');
-    return (email && name) ? { email, name } : null;
-}
+    return { email, name };
+};
 
 // Obtém o contador anônimo
 const getAnonCount = (): number => {
@@ -33,33 +33,23 @@ const incrementAnonCount = (): number => {
     return newCount;
 }
 
-// --- FUNÇÃO PRINCIPAL DE CLASSIFICAÇÃO (Com correção de fluxo) ---
+// --- FUNÇÃO PRINCIPAL DE CLASSIFICAÇÃO ---
 export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> => {
-    const credentials = getUserCredentials();
+    const credentials = getUserId();
     let currentAnonCount = getAnonCount();
 
-    const isAnonymous = !credentials;
+    const isAnonymous = !credentials.email;
     
-    // --- 1. CHECAGEM PRÉVIA DO LIMITE (CORREÇÃO DO BUG 2) ---
-    // Se for anônimo E já atingiu o limite, para AQUI e avisa o App.tsx para mostrar o modal
+    // 1. CHECAGEM PRÉVIA DO LIMITE ANÔNIMO
     if (isAnonymous && currentAnonCount >= ANON_LIMIT) {
         throw new Error("ANON_LIMIT_REACHED");
     }
-    // --- NOVO: Funções para Obter e Injetar Credenciais ---
-// Adicione esta função ao seu aiService.ts (em qualquer lugar)
-export const getUserId = (): { email: string | null, name: string | null } => {
-    const email = localStorage.getItem('user_email');
-    const name = localStorage.getItem('user_name');
-    return { email, name };
-};
 
-// ... (O restante do aiService.ts se mantém)
-
-    // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO (Inclui credenciais se existirem)
+    // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO (Inclui credenciais)
     const bodyData = {
         ...dados,
-        user_email: credentials?.email,
-        user_name: credentials?.name,
+        user_email: credentials.email,
+        user_name: credentials.name,
     };
 
     let response;
@@ -86,7 +76,7 @@ export const getUserId = (): { email: string | null, name: string | null } => {
 
     // 4. SUCESSO: ATUALIZA O CONTADOR ANÔNIMO
     if (isAnonymous) {
-        incrementAnonCount(); // Incrementa após o sucesso
+        incrementAnonCount(); 
     }
 
     const resultado: RespostaAPI = await response.json();
