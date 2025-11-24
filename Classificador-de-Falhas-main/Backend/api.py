@@ -17,8 +17,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 # --- 1. CONFIGURAÇÃO DO BANCO DE DADOS ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
-    # Fallback para evitar crash local se não tiver DB, mas no Railway precisa ter
-    print("AVISO: DATABASE_URL não encontrada. O controle de quota falhará.")
+    print("AVISO: DATABASE_URL não encontrada.")
     engine = None
 else:
     engine = create_engine(DATABASE_URL.replace("postgres://", "postgresql+psycopg2://"), echo=False)
@@ -33,13 +32,15 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-# --- MODELO DE USO ---
+# --- MODELO DE USO (ATUALIZADO COM PREMIUM) ---
 class UserUsage(SQLModel, table=True):
     email: str = Field(primary_key=True)
     name: str 
     individual_count: int = Field(default=0)
     batch_count: int = Field(default=0)
-    total_evaluations: int = Field(default=0) # Limite 10
+    total_evaluations: int = Field(default=0) 
+    # NOVO CAMPO: Define se o usuário tem acesso ilimitado
+    is_premium: bool = Field(default=False) 
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     last_use_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
@@ -59,20 +60,17 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# --- CARREGAMENTO DE MODELOS (CORRIGIDO) ---
+# Carregamento
 modelos = None
 encoders = None
-
 try:
-    print("Carregando artefatos ML...", flush=True)
     artefatos = joblib.load('modelo_classificacao_falhas.pkl')
     modelos = artefatos.get('modelos')
     encoders = artefatos.get('encoders')
-    print("Modelo carregado com sucesso!", flush=True)
 except Exception as e:
     print(f"ERRO CRÍTICO AO CARREGAR MODELO: {e}", file=sys.stderr)
 
-# --- DICIONÁRIOS DE MAPEAMENTO ---
+# Dicionários
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', '1.5': 'Looseness (Afrouxamento)', '1.6': 'Sticking (Emperramento/Travamento)', '1.7': 'Insulation damage (Dano no isolamento térmico/acústico)', '1.8': 'Degraded/insufficient support (Suporte degradado/insuficiente)', '1.9': 'Coating damage (Dano no revestimento/pintura)', '1.10': 'Damage to outer sheath (Dano na capa externa)', '1.11': 'Liquid filled annulus (Anular preenchido com líquido)', '1.12': 'Carcass collapse (Colapso da carcaça)', '1.13': 'Pullout of liner (Arrancamento do liner/camada interna)', '1.14': 'Defective flameproof joint, mechanical (Junta à prova de explosão defeituosa - mecânica)', '1.15': 'Defective enclosure/ IP (Invólucro defeituoso / Grau IP)', '2.0': 'General (Geral)', '2.1': 'Cavitation (Cavitação)', '2.2': 'Corrosion internal (Corrosão interna)', '2.3': 'Erosion (Erosão)', '2.4': 'Wear (Desgaste)', '2.5': 'Breakage (Quebra/Ruptura)', '2.6': 'Fatigue (Fadiga)', '2.7': 'Overheating (Superaquecimento)', '2.8': 'Burst (Estouro/Ruptura por pressão)', '2.9': 'Corrosion external (Corrosão externa)', '2.10': 'Crack (Trinca)', '2.11': 'Damage to flange (Dano no flange)', '2.12': 'Degraded bolting (Parafusos/Estojos degradados)', '2.13': 'Insufficient cathodic protection (Proteção catódica insuficiente)', '2.14': 'Chloride penetration (Penetração de cloretos)', '2.15': 'Damaged concrete (Concreto danificado)', '2.16': 'Defective flameproof joint, corrosion (Junta à prova de explosão defeituosa - corrosão)', '2.17': 'Natural Degradation (Degradação natural)', '2.20': 'Corrosion under insulation (Corrosão sob isolamento - CUI)', '2.21': 'Corrosion insulated bolts (Corrosão em parafusos isolados)', '3.0': 'General (Geral)', '3.1': 'Control failure (Falha de controle)', '3.2': 'No signal/indication/alarm (Sem sinal/indicação/alarme)', '3.3': 'Faulty signal/indication/alarm (Sinal/indicação/alarme defeituoso)', '3.4': 'Out of adjustment (Desajustado)', '3.5': 'Software failure (Falha de software)', '3.6': 'Common cause/mode failure (Falha de causa comum/modo comum)', '4.0': 'General (Geral)', '4.1': 'Short circuiting (Curto-circuito)', '4.2': 'Open circuit (Circuito aberto)', '4.3': 'No power/voltage (Sem energia/tensão)', '4.4': 'Faulty power/voltage (Energia/tensão defeituosa)', '4.5': 'Earth/isolation fault (Falha de terra/isolamento)', '4.6': 'Defective electrical connection (Conexão elétrica defeituosa)', '5.0': 'General (Geral)', '5.1': 'Blockage/plugged (Bloqueio/Entupimento)', '5.2': 'Contamination (Contaminação)', '5.3': 'Miscellaneous external influences (Influências externas diversas)', '5.4': 'Marine fouling (Incrustação marinha)', '5.5': 'Seabed erosion (Erosão do leito marinho)', '5.6': 'Free span (Vão livre)', '5.7': 'Detrimental contact (Contato prejudicial)', '5.8': 'Incorrect configuration (Configuração incorreta)', '5.9': 'Operation outside pressure and temp (Operação fora de pressão e temperatura)', '6.0': 'General (Geral)', '6.1': 'No cause found (Nenhuma causa encontrada)', '6.2': 'Combined causes (Causas combinadas)', '6.3': 'Other (Outro)', '6.4': 'Unknown (Desconhecido)', '6.5': 'Deviation from design (Desvio de projeto)'
 }
@@ -137,53 +135,42 @@ def register_user(user: UserRegistration, session: Session = Depends(get_session
     session.commit()
     return {"status": "success", "message": "Registered.", "total_uses": 0}
 
-# Endpoint: Classificar (CORRIGIDO: Remove vetorização manual)
+# Endpoint: Classificar
 @app.post("/classificar", response_model=RespostaAPI)
 def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_session)):
     
-    # 1. Controle de Quota
     user_db = None
     if dados.user_email:
         user_db = session.get(UserUsage, dados.user_email)
-        if user_db and user_db.total_evaluations >= 10:
+        # --- CHECK PREMIUM E QUOTA ---
+        # Se NÃO for premium E tiver atingido 10, bloqueia.
+        if user_db and (not user_db.is_premium) and user_db.total_evaluations >= 10:
             raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
-    # 2. Check ML
     if modelos is None or encoders is None:
-        raise HTTPException(status_code=503, detail="ML Service Unavailable (Artifacts Missing)")
+        raise HTTPException(status_code=503, detail="ML Service Unavailable")
 
-    # 3. Prepara DataFrame (Pipeline espera isso)
     df_input = pd.DataFrame({
-        'Tag': [dados.tag],
-        'FailureImp': [dados.impacto],
-        'Description': [dados.descricao] # Pipeline aplica 'limpar_texto' internamente se foi treinado assim?
-        # Se o treino aplicou limpar_texto ANTES do pipeline, precisamos aplicar aqui e salvar como TEXTO_LIMPO
+        'Tag': [dados.tag], 'FailureImp': [dados.impacto], 'Description': [dados.descricao]
     })
-    # Como seu script de treino aplicou limpar_texto e CRIOU a coluna TEXTO_LIMPO antes do Pipeline,
-    # precisamos recriar essa coluna aqui.
     df_input['TEXTO_LIMPO'] = limpar_texto(dados.descricao)
 
     try:
-        # 4. Predição (Passando DataFrame DIRETO)
         def prever_top3(coluna, dicionario_map):
-            # O Pipeline (modelos[coluna]) já tem o preprocessor dentro!
-            # NÃO USAR VECTORIZER.TRANSFORM AQUI.
             probs = modelos[coluna].predict_proba(df_input)[0]
             top3_idxs = np.argsort(probs)[-3:][::-1]
-            
-            resultados = []
+            res = []
             for idx in top3_idxs:
-                codigo = encoders[coluna].inverse_transform([idx])[0]
-                confianca = float(probs[idx])
-                texto_desc = dicionario_map.get(codigo, codigo)
-                resultados.append({"codigo": codigo, "descricao": texto_desc, "confianca": confianca})
-            return resultados
+                cod = encoders[coluna].inverse_transform([idx])[0]
+                conf = float(probs[idx])
+                txt = dicionario_map.get(cod, cod)
+                res.append({"codigo": cod, "descricao": txt, "confianca": conf})
+            return res
 
         res_mode = prever_top3('FailMode', map_mode)
         res_det = prever_top3('DetMethod', map_det)
         res_mech = prever_top3('FailMech', map_mech)
 
-        # 5. Atualiza Quota
         if user_db:
             user_db.individual_count += 1
             user_db.total_evaluations += 1
@@ -192,15 +179,13 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
             session.commit()
 
         return {
-            "modo": res_mode,
-            "deteccao": res_det,
-            "mecanismo": res_mech,
+            "modo": res_mode, "deteccao": res_det, "mecanismo": res_mech,
             "texto_processado": df_input['TEXTO_LIMPO'].iloc[0]
         }
 
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Prediction Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 # Endpoint: Batch Check
 @app.post("/batch-process")
@@ -212,7 +197,8 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
     if not user_db:
         raise HTTPException(status_code=401, detail="User not found")
         
-    if user_db.total_evaluations + request.batch_size > 10:
+    # --- CHECK PREMIUM E QUOTA (BATCH) ---
+    if (not user_db.is_premium) and (user_db.total_evaluations + request.batch_size > 10):
         raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
     user_db.batch_count += 1
