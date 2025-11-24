@@ -1,24 +1,22 @@
-// src/services/aiService.ts (Versão Final Corrigida)
+// src/services/aiService.ts (Final Version)
 import { FalhaInput, RespostaAPI } from "../types";
 
-// Usa variável de ambiente (VITE_API_URL)
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // Interface interna para dados de registro
 interface UserCredentials {
-    email: string;
-    name: string;
+    email: string | null;
+    name: string | null;
 }
 
 const ANON_LIMIT = 5;
 
-// --- FUNÇÃO CORRIGIDA PARA OBTER CREDENCIAIS ---
-// Esta função é chamada pelo BatchProcessor e Classifier
-export const getUserId = (): { email: string | null, name: string | null } => {
+// Obtém credenciais salvas no localStorage
+export const getUserId = (): UserCredentials => {
     const email = localStorage.getItem('user_email');
     const name = localStorage.getItem('user_name');
     return { email, name };
-};
+}
 
 // Obtém o contador anônimo
 const getAnonCount = (): number => {
@@ -35,7 +33,7 @@ const incrementAnonCount = (): number => {
 
 // --- FUNÇÃO PRINCIPAL DE CLASSIFICAÇÃO ---
 export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> => {
-    const credentials = getUserId();
+    const credentials = getUserId(); // Pega credenciais em tempo real
     let currentAnonCount = getAnonCount();
 
     const isAnonymous = !credentials.email;
@@ -45,10 +43,10 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
         throw new Error("ANON_LIMIT_REACHED");
     }
 
-    // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO (Inclui credenciais)
+    // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO (Injeta credenciais, mesmo que null)
     const bodyData = {
         ...dados,
-        user_email: credentials.email,
+        user_email: credentials.email, // Injeta o email atualizado
         user_name: credentials.name,
     };
 
