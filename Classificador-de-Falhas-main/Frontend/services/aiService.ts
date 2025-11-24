@@ -1,5 +1,6 @@
-// src/services/aiService.ts (Atualize o conteúdo)
-import { FalhaInput, RespostaAPI, ItemClassificacao } from "../types";
+// src/services/aiService.ts
+
+import { FalhaInput, RespostaAPI } from "../types";
 
 // Usa variável de ambiente (VITE_API_URL)
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -9,6 +10,8 @@ interface UserCredentials {
     email: string;
     name: string;
 }
+
+const ANON_LIMIT = 5;
 
 // Obtém credenciais salvas no localStorage
 const getUserCredentials = (): UserCredentials | null => {
@@ -30,64 +33,53 @@ const incrementAnonCount = (): number => {
     return newCount;
 }
 
-
-// --- FUNÇÃO PRINCIPAL DE CLASSIFICAÇÃO ---
+// --- FUNÇÃO PRINCIPAL DE CLASSIFICAÇÃO (Com correção de fluxo) ---
 export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> => {
-  const credentials = getUserCredentials();
-  let currentAnonCount = getAnonCount();
+    const credentials = getUserCredentials();
+    let currentAnonCount = getAnonCount();
 
-  const isAnonymous = !credentials;
-  const anonLimitReached = currentAnonCount >= 5 && isAnonymous;
+    const isAnonymous = !credentials;
+    
+    // --- 1. CHECAGEM PRÉVIA DO LIMITE (CORREÇÃO DO BUG 2) ---
+    // Se for anônimo E já atingiu o limite, para AQUI e avisa o App.tsx para mostrar o modal
+    if (isAnonymous && currentAnonCount >= ANON_LIMIT) {
+        throw new Error("ANON_LIMIT_REACHED");
+    }
 
-  // 1. CHECAGEM DE LIMITE ANÔNIMO
-  if (anonLimitReached) {
-      // Retorna um erro específico que o componente irá interceptar para mostrar o modal de registro
-      throw new Error("ANON_LIMIT_REACHED");
-  }
+    // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO (Inclui credenciais se existirem)
+    const bodyData = {
+        ...dados,
+        user_email: credentials?.email,
+        user_name: credentials?.name,
+    };
 
+    let response;
+    try {
+        response = await fetch(`${API_URL}/classificar`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(bodyData),
+        });
+    } catch (error) {
+        throw new Error("CONNECTION_ERROR");
+    }
 
-  // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO
-  const bodyData = {
-      ...dados,
-      user_email: credentials?.email,
-      user_name: credentials?.name,
-  };
+    // 3. TRATAMENTO DE ERROS DA API (403 Quota Exceeded)
+    if (response.status === 403) {
+        throw new Error("QUOTA_EXCEEDED");
+    }
+    
+    if (!response.ok) {
+        throw new Error(`Erro na API: ${response.statusText}`);
+    }
 
-  let response;
-  try {
-    response = await fetch(`${API_URL}/classificar`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(bodyData),
-    });
-  } catch (error) {
-    throw new Error("CONNECTION_ERROR");
-  }
+    // 4. SUCESSO: ATUALIZA O CONTADOR ANÔNIMO
+    if (isAnonymous) {
+        incrementAnonCount(); // Incrementa após o sucesso
+    }
 
-
-  // 3. TRATAMENTO DE ERROS DA API
-  if (response.status === 403) {
-      // Limite atingido (resposta do Backend com Quota Exceeded)
-      throw new Error("QUOTA_EXCEEDED");
-  }
-  
-  if (!response.ok) {
-    throw new Error(`Erro na API: ${response.statusText}`);
-  }
-
-  // 4. SUCESSO: ATUALIZA O CONTADOR ANÔNIMO
-  if (isAnonymous) {
-      currentAnonCount = incrementAnonCount();
-      // Checa se o último uso anônimo atingiu o limite (para mostrar o modal na próxima interação)
-      if (currentAnonCount >= 5) {
-          throw new Error("SHOW_REGISTER_MODAL");
-      }
-  }
-
-  const resultado: RespostaAPI = await response.json();
-  return resultado;
+    const resultado: RespostaAPI = await response.json();
+    return resultado;
 };
-
-// ... (Você pode adicionar uma função separada para o Batch se necessário) ...
