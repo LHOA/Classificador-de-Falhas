@@ -22,7 +22,7 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
     // O Frontend precisa ser responsável por chamar fetch('/register')
     
     try {
-      const response = await fetch('https://SUA_URL_DO_BACKEND/register', { // <--- SUBSTITUA AQUI PELA URL DA SUA API
+      const response = await fetch('https://fault-finder-ai.up.railway.app', { // <--- SUBSTITUA AQUI PELA URL DA SUA API
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ email, name })
