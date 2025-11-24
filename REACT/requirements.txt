@@ -8,3 +8,5 @@ plotly
 fastapi
 uvicorn
 pydantic
+flask
+
