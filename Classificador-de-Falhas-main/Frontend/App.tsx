@@ -1,18 +1,15 @@
 import React, { useState } from 'react';
-import Header from './components/Header';
+import Header from './components/Header'; // Opcional, se quiser manter
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
 import BatchProcessor from './components/BatchProcessor';
 import Dictionary from './components/Dictionary';
 import { FailureRecord, TabView } from './types';
-// 1. Importar o Contexto
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 
-// 2. Criamos um componente interno para segurar a lógica
-// Isso é necessário para podermos usar o hook 'useLanguage' aqui dentro
 const AppContent: React.FC = () => {
-  const { t } = useLanguage(); // Hook de tradução
+  const { t } = useLanguage(); 
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
   const [history, setHistory] = useState<FailureRecord[]>([]);
 
@@ -26,30 +23,30 @@ const AppContent: React.FC = () => {
     setCurrentTab(TabView.DASHBOARD);
   };
 
-  // Função auxiliar para pegar o título traduzido baseado na aba
+  // Função para pegar o título traduzido
   const getTitle = () => {
     switch (currentTab) {
       case TabView.DASHBOARD: return t('nav_dashboard');
       case TabView.CLASSIFIER: return t('nav_classifier');
       case TabView.BATCH: return t('nav_batch');
       case TabView.DICTIONARY: return t('nav_dictionary');
-      default: return 'Failure Map';
+      default: return t('app_title');
     }
   };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-      {/* Sidebar agora já tem acesso ao contexto por estar dentro do Provider */}
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
       
       <div className="flex-1 flex flex-col min-w-0">
-        <Header />
+        {/* Se o Header estiver duplicando o título, pode remover esta linha abaixo */}
+        {/* <Header /> */}
         
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
            <div className="max-w-7xl mx-auto">
-            {/* Breadcrumb / Header - Agora Traduzido */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-900 capitalize">
+            {/* Título da Página (Traduzido) */}
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-slate-900">
                 {getTitle()}
               </h2>
             </div>
@@ -65,7 +62,6 @@ const AppContent: React.FC = () => {
   );
 };
 
-// 3. O Componente Principal App apenas fornece o Contexto
 const App: React.FC = () => {
   return (
     <LanguageProvider>
