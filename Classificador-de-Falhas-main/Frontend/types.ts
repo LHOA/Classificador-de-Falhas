@@ -1,5 +1,4 @@
-// --- 1. ENUM DE NAVEGAÇÃO (Mudança aqui!) ---
-// Transformamos de "type" para "enum" para que o Sidebar.tsx consiga ler "TabView.DASHBOARD"
+// --- 1. ENUM DE NAVEGAÇÃO ---
 export enum TabView {
   CLASSIFIER = 'classifier',
   BATCH = 'bulk',
@@ -7,11 +6,11 @@ export enum TabView {
   DICTIONARY = 'dictionary'
 }
 
-// --- 2. TIPOS DA API ---
+// --- 2. TIPOS DA API (O que vai e volta do Python) ---
 export interface FalhaInput {
   tag: string;
   descricao: string;
-  impacto: string; // "D", "S", "U" ou "X"
+  impacto: string; 
 }
 
 export interface ResultadoClassificacao {
@@ -25,4 +24,30 @@ export interface RespostaAPI {
   deteccao: ResultadoClassificacao;
   mecanismo: ResultadoClassificacao;
   texto_processado: string;
+}
+
+// --- 3. TIPOS DA UI (O que o React usa para exibir/salvar) ---
+export interface FailureRecord {
+  id: string;
+  tag: string;
+  description: string;
+  
+  impactCode: string;
+  impact: string;
+
+  modeCode: string;
+  mode: string;
+  confidenceMode: number;
+
+  mechanismCode: string;
+  mechanism: string;
+  confidenceMech: number;
+
+  detectionCode: string;
+  detection: string;
+  confidenceDet: number;
+
+  confidence: number;
+  status: 'IA' | 'Human';
+  timestamp: Date;
 }
