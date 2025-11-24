@@ -7,10 +7,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
-  // NOVAS PROPS para gerenciar o fluxo de quota
-  onShowRegister: () => void; // Chama o modal de registro
-  onShowLimitReached: () => void; // Chama a mensagem de limite atingido
-  isQuotaEnforced: boolean; // Flag que o pai passa para desabilitar o botão se o limite foi atingido
+  // PROPS para gerenciar o fluxo de quota
+  onShowRegister: () => void;
+  onShowLimitReached: () => void;
+  isQuotaEnforced: boolean; 
 }
 
 const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowLimitReached, isQuotaEnforced }) => {
@@ -32,14 +32,15 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     return map[code][language];
   };
 
-  // --- LÓGICA DE CLASSIFICAÇÃO ATUALIZADA ---
+  // --- LÓGICA DE CLASSIFICAÇÃO CORRIGIDA ---
   const handleClassify = async () => {
-    if (!description || isLoading) return;
+    if (!description || isLoading || isQuotaEnforced) return;
 
     setIsLoading(true);
     setResult(null); 
     
     try {
+      // Variável aiResult é definida e usada corretamente
       const aiResult = await classificarFalha({
         tag: tag,
         descricao: description,
@@ -48,17 +49,16 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
       
       setResult(aiResult);
       
-      setSelectedMode(aiResult.modo[0].codigo);
-      setSelectedMech(aiRes.mecanismo[0].codigo);
-      setSelectedDet(aiRes.deteccao[0].codigo);
+      // As atribuições usam aiResult corretamente
+      setSelectedMode(aiResult.modo[0].codigo); 
+      setSelectedMech(aiResult.mecanismo[0].codigo);
+      setSelectedDet(aiResult.deteccao[0].codigo);
 
     } catch (e: any) {
-        // --- NOVO TRATAMENTO DE ERROS DE QUOTA ---
+        // Tratamento de Erros de Quota do Frontend/Backend
         if (e.message === "ANON_LIMIT_REACHED") {
-            // Atingiu o limite anônimo (5), mas ainda não é erro 403
             onShowRegister(); 
         } else if (e.message === "QUOTA_EXCEEDED") {
-            // Limite de 10 usos atingido (erro 403 do backend)
             onShowLimitReached(); 
         } else {
             console.error("API Error:", e);
@@ -68,8 +68,9 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
       setIsLoading(false);
     }
   };
-  // ... (restante do código handleSave e AIDropdown) ...
-  
+  // --- FIM DA LÓGICA DE CLASSIFICAÇÃO ---
+
+
   const handleSave = () => {
     if (!result) return;
 
@@ -110,7 +111,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     onSave(newRecord);
     setTag(''); setDescription(''); setResult(null);
   };
-  
+
   const AIDropdown = ({ label, value, onChange, optionsAI, mapDictionary }: { label: string, value: string, onChange: (val: string) => void, optionsAI: any[], mapDictionary: any }) => {
     const selectedItemAI = optionsAI.find(opt => opt.codigo === value);
     const confidenceDisplay = selectedItemAI 
