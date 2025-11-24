@@ -23,7 +23,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       app_title: 'Failure Map',
       profile_role: 'Eng. Mecânico | Confiabilidade',
       
-      // Dashboard (NOVO)
+      // Dashboard
       dash_total: 'Total de Registros',
       dash_critical: 'Falhas Críticas',
       dash_impact_title: 'Distribuição por Impacto',
@@ -34,6 +34,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       dash_insight_mode: 'é o modo de falha mais recorrente.',
       dash_legend_toggle: 'Mostrar Legenda',
       dash_recent: 'Análises Recentes',
+      btn_download: 'Baixar Histórico (CSV)', // <--- NOVO
       
       // Classificador
       input_title: 'Dados de Entrada',
@@ -64,7 +65,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       app_title: 'Failure Map',
       profile_role: 'Mech. Eng | Reliability',
 
-      // Dashboard (NEW)
+      // Dashboard
       dash_total: 'Total Records',
       dash_critical: 'Critical Failures',
       dash_impact_title: 'Impact Distribution',
@@ -75,6 +76,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       dash_insight_mode: 'is the most recurring failure mode.',
       dash_legend_toggle: 'Show Legend',
       dash_recent: 'Recent Analysis',
+      btn_download: 'Download History (CSV)', // <--- NOVO
 
       // Classifier
       input_title: 'Input Data',
