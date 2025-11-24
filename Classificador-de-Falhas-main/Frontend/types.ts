@@ -1,18 +1,20 @@
-// O que você envia para a API
+// --- TIPOS DE NAVEGAÇÃO (O que estava faltando) ---
+// Define quais telas existem no seu app
+export type TabView = 'classifier' | 'bulk' | 'dashboard' | 'dictionary';
+
+// --- TIPOS DA API (Necessários para a IA funcionar) ---
 export interface FalhaInput {
   tag: string;
   descricao: string;
   impacto: string; // "D", "S", "U" ou "X"
 }
 
-// O pedacinho da resposta da IA (código + texto + confiança)
 export interface ResultadoClassificacao {
   codigo: string;
   descricao: string;
   confianca: number;
 }
 
-// A resposta completa da API
 export interface RespostaAPI {
   modo: ResultadoClassificacao;
   deteccao: ResultadoClassificacao;
