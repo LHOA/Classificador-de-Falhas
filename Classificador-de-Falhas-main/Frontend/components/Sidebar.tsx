@@ -1,6 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Microscope, FileSpreadsheet, BookOpen, ExternalLink, UserCircle } from 'lucide-react';
+import { LayoutDashboard, Microscope, FileSpreadsheet, BookOpen, ExternalLink, UserCircle, Globe } from 'lucide-react';
 import { TabView } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface SidebarProps {
   currentTab: TabView;
@@ -8,20 +9,21 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
+  // Hook para pegar os textos traduzidos e função de trocar idioma
+  const { language, setLanguage, t } = useLanguage();
+
   const menuItems = [
-    { id: TabView.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
-    { id: TabView.CLASSIFIER, label: 'Classifier', icon: Microscope },
-    { id: TabView.BATCH, label: 'Batch Analysis', icon: FileSpreadsheet },
-    { id: TabView.DICTIONARY, label: 'Dictionary', icon: BookOpen },
+    { id: TabView.DASHBOARD, label: t('nav_dashboard'), icon: LayoutDashboard },
+    { id: TabView.CLASSIFIER, label: t('nav_classifier'), icon: Microscope },
+    { id: TabView.BATCH, label: t('nav_batch'), icon: FileSpreadsheet },
+    { id: TabView.DICTIONARY, label: t('nav_dictionary'), icon: BookOpen },
   ];
 
   return (
     <aside className="w-20 lg:w-72 bg-slate-900 text-white flex flex-col flex-shrink-0 transition-all duration-300 h-screen sticky top-0 shadow-xl z-30">
       {/* Logo Section */}
-      <div className="h-24 flex items-center justify-center border-b border-slate-800 bg-slate-950 p-4">
-        {/* Placeholder for the Logo - Replace src with your actual image URL */}
+      <div className="h-24 flex items-center justify-center border-b border-slate-800 bg-slate-950 p-4 relative">
         <div className="flex flex-col items-center justify-center">
-            {/* Updated with white background as requested */}
             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-2 overflow-hidden border-2 border-indigo-500">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-red-700">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 2a10 10 0 100 20 10 10 0 000-20z" />
@@ -30,9 +32,25 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
                 </svg>
             </div>
             <span className="font-bold text-lg tracking-wider text-center leading-none hidden lg:block">
-              FAULTFINDER <span className="text-indigo-400">AI</span>
+              FAILURE MAP
             </span>
         </div>
+      </div>
+
+      {/* --- BOTÃO DE IDIOMA NOVO --- */}
+      <div className="px-4 py-3 border-b border-slate-800 flex justify-center lg:justify-start">
+        <button 
+          onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
+          className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg transition-colors border border-slate-700 group"
+        >
+          <Globe className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300" />
+          <span className="hidden lg:inline text-slate-300 group-hover:text-white">
+            {language === 'pt' ? 'Mudar para English 🇺🇸' : 'Switch to Português 🇧🇷'}
+          </span>
+          <span className="lg:hidden text-slate-300">
+            {language.toUpperCase()}
+          </span>
+        </button>
       </div>
       
       {/* Navigation */}
@@ -72,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white truncate">Luis Henrique Oliveira</p>
                     <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
-                        Eng. Mecânico | Gestão de Ativos & Confiabilidade
+                       {t('profile_role')}
                     </p>
                 </div>
             </div>
