@@ -1,6 +1,6 @@
 // src/components/QuotaModal.tsx
 import React, { useState } from 'react';
-import { Mail, User, Lock, X } from 'lucide-react';
+import { Mail, User, Lock, X, ExternalLink } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface QuotaModalProps {
@@ -9,6 +9,8 @@ interface QuotaModalProps {
   showContactMessage?: boolean;
 }
 
+// URL DO DESENVOLVEDOR (Recuperada do seu Sidebar.tsx original)
+const LINKEDIN_URL = "https://www.linkedin.com/in/luishenriqueifma/";
 // O URL base da API deve ser pego do ambiente (VITE_API_URL)
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -23,7 +25,6 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
     setIsLoading(true);
     
     try {
-      // CORREÇÃO CRÍTICA: Garantir que o endpoint /register seja chamado
       const response = await fetch(`${API_URL}/register`, { 
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
@@ -35,7 +36,6 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
       if (response.ok) {
         onRegister(email, name);
       } else {
-        // Trata erros específicos do servidor (ex: 400 Bad Request)
         alert(`Falha no Registro: ${data.message || response.statusText}`);
       }
 
@@ -47,6 +47,7 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
     }
   };
 
+  // --- MENSAGEM DE LIMITE ATINGIDO (CORRIGIDA) ---
   if (showContactMessage) {
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -54,11 +55,25 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
                  <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                  <Lock className="w-8 h-8 text-red-500 mx-auto mb-4" />
                  <h3 className="text-xl font-bold text-slate-800 mb-2">Limite de Uso Atingido</h3>
-                 <p className="text-slate-600 mb-6">Você atingiu o limite de 10 avaliações. Para ter acesso irrestrito, por favor, entre em contato:</p>
-                 <p className="font-bold text-lg text-indigo-600 mb-2">Luis Henrique Oliveira</p>
-                 <p className="text-sm text-slate-500 mb-4">Email: [Seu Email Aqui]</p>
-                 <p className="text-sm text-red-500 font-bold">⚠️ Não haverá cobrança, este limite é apenas para controle e governança do uso da IA.</p>
-                 <button onClick={onClose} className="mt-6 w-full py-2 bg-indigo-600 text-white rounded-lg">Fechar</button>
+                 
+                 <p className="text-slate-600 mb-6">
+                    Você atingiu o limite de 10 avaliações. Para solicitar o acesso estendido, por favor, acesse o LinkedIn do desenvolvedor:
+                 </p>
+                 
+                 <a 
+                    href={LINKEDIN_URL} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg"
+                 >
+                    <ExternalLink className="w-5 h-5" />
+                    Solicitar Acesso (Gratuito)
+                 </a>
+                 
+                 <p className="mt-4 text-sm text-red-500 font-bold">
+                    ⚠️ Este acesso é gratuito e serve apenas para controle de uso e governança da API.
+                 </p>
+                 <button onClick={onClose} className="mt-6 w-full py-2 bg-slate-400 text-white rounded-lg">Fechar</button>
             </div>
         </div>
     );
