@@ -54,20 +54,14 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# Carregamento do Modelo E DO VETORIZADOR
+# Carregamento do Modelo E DO VETORIZADOR (MAIS SEGURO)
 try:
     artefatos = joblib.load('modelo_classificacao_falhas.pkl')
-    modelos = artefatos['modelos']
-    encoders = artefatos['encoders']
-    vectorizer = artefatos['vectorizer'] # <--- NOVO: CARREGA O VETORIZADOR
+    # Usamos .get() para evitar KeyError no carregamento
+    modelos = artefatos.get('modelos')
+    encoders = artefatos.get('encoders')
+    vectorizer = artefatos.get('vectorizer') # <--- Carregamento seguro
     
-
-except Exception as e:
-    modelos = {}
-    encoders = {}
-    vectorizer = None
-    
-    print(f"ERRO CRÍTICO: Falha ao carregar artefatos ML: {e}. A IA não funcionará.")
  # --- DICIONÁRIOS (Versão Completa e Limpa) ---
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
@@ -140,13 +134,26 @@ map_mode = {
     'ISB': 'Information security breach (Violação de segurança da informação)', 'ILP': 'Internal leakage - process medium (Vazamento interno - fluido de processo)', 
     'EFA': 'Electronic failure (Falha eletrônica)'
 }
+    map_mode = artefatos.get('map_mode', {})
+    map_mech = artefatos.get('map_mech', {})
+    map_det = artefatos.get('map_det', {})
+
+except Exception as e:
+    modelos = None
+    encoders = None
+    vectorizer = None
+    map_mode = {}
+    map_mech = {}
+    map_det = {}
+    print(f"ERRO CRÍTICO: Falha ao carregar artefatos ML. A IA não funcionará. {e}")
+
 
 # --- CONFIGURAÇÃO DO FASTAPI E CORS ---
 app = FastAPI(title="API Classificador de Falhas")
 
 @app.on_event("startup")
 def on_startup():
-    if modelos:
+    if modelos: # Garante que o DB só é criado se o modelo tiver carregado (evita erro)
         create_db_and_tables()
 
 origins = ["*"]
@@ -188,7 +195,6 @@ class BatchProcessRequest(BaseModel):
 
 # --- ENDPOINTS ---
 
-# Endpoint de Registro/Login
 @app.post("/register", tags=["Quota Control"])
 def register_user(user: UserRegistration, session: Session = Depends(get_session)):
     user_db = session.get(UserUsage, user.email)
@@ -207,7 +213,7 @@ def register_user(user: UserRegistration, session: Session = Depends(get_session
 @app.post("/classificar", response_model=RespostaAPI, tags=["AI Evaluation"])
 def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_session)):
     
-    # --- CHECK DE QUOTA ---
+    # --- CHECK DE QUOTA (MANTIDO) ---
     user_db = None
     if dados.user_email:
         user_db = session.get(UserUsage, dados.user_email)
@@ -218,9 +224,10 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
                 detail="Quota Exceeded. Please contact the developer for more access. (No charge, usage control only)."
             )
     
-    # --- LÓGICA DA IA ---
-    if not modelos or not vectorizer:
-        raise HTTPException(status_code=503, detail="Modelo/Vectorizador de IA não carregado.")
+    # --- VERIFICAÇÃO CRÍTICA DE ML ---
+    if not modelos or not vectorizer or not encoders:
+        # Se algum artefato ML essencial estiver ausente, retorna erro 503 claro.
+        raise HTTPException(status_code=503, detail="Serviço de IA indisponível. Artefatos de Machine Learning não carregados corretamente.")
         
     df_input = pd.DataFrame({
         'Tag': [dados.tag],
@@ -230,11 +237,11 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     df_input['TEXTO_LIMPO'] = limpar_texto(df_input['Description'])
     
     try:
-        # VETORIZAÇÃO É AQUI!
-        X = vectorizer.transform(df_input['TEXTO_LIMPO']) # <--- ONDE ESTAVA O BUG 1
+        # VETORIZAÇÃO - AGORA SEGURO
+        X = vectorizer.transform(df_input['TEXTO_LIMPO'])
         
         def prever_top3(coluna, dicionario_map):
-            probs = modelos[coluna].predict_proba(X)[0] # Usa X (features vetorizadas)
+            probs = modelos[coluna].predict_proba(X)[0] 
             top3_idxs = np.argsort(probs)[-3:][::-1]
             
             resultados = []
@@ -250,7 +257,8 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
         res_mech = prever_top3('FailMech', map_mech)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na predição da IA: {str(e)}")
+        # Se o erro for na predição (ex: vetorizador aplicou mal o modelo), retorna 500
+        raise HTTPException(status_code=500, detail=f"Erro interno na predição da IA. Verifique a compatibilidade dos dados. Detalhes: {str(e)}")
 
     # --- ATUALIZA O USO NO BANCO DE DADOS ---
     if user_db:
@@ -273,24 +281,15 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
     batch_cost = 10 
     
     if not request.user_email:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Batch processing requires user registration."
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Batch processing requires user registration.")
 
     user_db = session.get(UserUsage, request.user_email)
     
     if not user_db:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not registered."
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not registered.")
         
     if user_db.total_evaluations + batch_cost > 10:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Quota Exceeded for Batch. Please contact the developer for more access. (No charge, usage control only)."
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Quota Exceeded for Batch. Please contact the developer for more access. (No charge, usage control only).")
 
     user_db.batch_count += 1
     user_db.total_evaluations += batch_cost
@@ -305,4 +304,3 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
 @app.get("/")
 def health_check():
     return {"status": "ok", "mensagem": "API Classificador ISO 14224 está rodando"}
-
