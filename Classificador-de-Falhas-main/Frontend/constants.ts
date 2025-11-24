@@ -1,4 +1,4 @@
-// Mapas de tradução para ISO 14224 (PT/EN)
+// src/constants.ts
 
 export const MAP_IMPACTO = {
   'D': { pt: 'D - Falha Crítica (Dead)', en: 'D - Critical Failure (Dead)' },
@@ -7,6 +7,7 @@ export const MAP_IMPACTO = {
   'X': { pt: 'Outros (X / None)', en: 'Others (X / None)' }
 };
 
+// CÓDIGOS LIMPOS (Removidos: 112, B000...H000)
 export const MAP_MODE: Record<string, { pt: string, en: string }> = {
   'OTH': { pt: 'Outros', en: 'Other' },
   'ELP': { pt: 'Vazamento externo - meio de processo', en: 'External leakage - process medium' },
@@ -33,12 +34,6 @@ export const MAP_MODE: Record<string, { pt: string, en: string }> = {
   'LOA': { pt: 'Queda de carga', en: 'Load drop' },
   'EXP': { pt: 'Sobrepressão/Explosão', en: 'Overpressure/Explosion' },
   'VIB': { pt: 'Vibração', en: 'Vibration' },
-  'B000': { pt: 'Sinal de instrumento anormal', en: 'Abnormal instrument signal' },
-  'C000': { pt: 'Vazamento externo', en: 'External leakage' },
-  'I000': { pt: 'Bloqueado/restrito/incrustado', en: 'Blocked/restricted/coated/scaling' },
-  'F000': { pt: 'Não opera sob demanda', en: 'Does not operate on demand' },
-  'K000': { pt: 'Vibração/Ruído', en: 'Vibration/ noise' },
-  'D000': { pt: 'Vazamento interno', en: 'Internal leakage' },
   'INL': { pt: 'Vazamento interno', en: 'Internal leakage' },
   'LOR': { pt: 'Perda de redundância', en: 'Loss of redundancy' },
   'AOL': { pt: 'Saída anormal - baixa', en: 'Abnormal output - low' },
@@ -60,29 +55,20 @@ export const MAP_MODE: Record<string, { pt: string, en: string }> = {
   'NOO': { pt: 'Sem saída', en: 'No output' },
   'FRO': { pt: 'Falha ao rotacionar', en: 'Failure to rotate' },
   'PTF': { pt: 'Falha de transmissão de energia/sinal', en: 'Power / signal transmission failure' },
-  'Y000': { pt: 'Sem falha', en: 'No failure' },
   'POW': { pt: 'Potência insuficiente', en: 'Insufficient power' },
   'FTL': { pt: 'Falha ao travar/destravar', en: 'Failure to lock/unlock' },
   'FDC': { pt: 'Falha ao desconectar', en: 'Failure to disconnect' },
   '021': { pt: 'Erro de módulo I/O', en: 'COM I/O module error' },
   'SBU': { pt: 'Acúmulo de borra/lodo', en: 'Sludge build-up' },
   'NON': { pt: 'Sem efeito imediato', en: 'No immediate effect' },
-  'J000': { pt: 'Pequeno problema em serviço', en: 'Minor In-service Problem' },
-  '000': { pt: 'Falha de UPS', en: 'UPS-failure' },
   'SLL': { pt: 'Nível de alarme baixo espúrio', en: 'Spurious low alarm level' },
-  '002': { pt: 'Nível de óleo do transformador muito baixo', en: 'Transformer oil level too low' },
-  '112': { pt: 'Nível de óleo do transformador muito baixo', en: 'Transformer oil level too low' },
   'SCF': { pt: 'Falha na contenção secundária', en: 'Secondary containment failure' },
   'WCL': { pt: 'Comunicação poço-linha de controle', en: 'Well-to-control-line communication' },
-  'E000': { pt: 'Dano físico', en: 'Physical damage' },
   'CSF': { pt: 'Falha de controle/sinal', en: 'Control / signal failure' },
   'LRM': { pt: 'Perda de gerenciamento remoto', en: 'Loss of remote management' },
   'ISB': { pt: 'Violação de segurança da informação', en: 'Information security breach' },
   'ILP': { pt: 'Vazamento interno - fluido de processo', en: 'Internal leakage - process medium' },
-  'EFA': { pt: 'Falha eletrônica', en: 'Electronic failure' },
-  '2-RC': { pt: 'Recomendação', en: 'Recommendation' },
-  '5-OK': { pt: 'OK', en: 'OK' },
-  'H000': { pt: 'Falhou durante operação', en: 'Failed During Operation' }
+  'EFA': { pt: 'Falha eletrônica', en: 'Electronic failure' }
 };
 
 export const MAP_MECH: Record<string, { pt: string, en: string }> = {
