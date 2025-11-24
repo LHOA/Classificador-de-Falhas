@@ -4,14 +4,27 @@ import re
 import nltk
 from nltk.corpus import stopwords
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware # <--- IMPORTANTE
 from pydantic import BaseModel
 import os
 
 # --- CONFIGURAÇÃO INICIAL ---
 app = FastAPI(title="API Classificador de Falhas")
 
+# --- CORREÇÃO DO ERRO DE CORS AQUI ---
+# Isso libera o seu Frontend para conversar com o Backend
+origins = ["*"] # Em produção, você pode trocar "*" pela URL do seu frontend
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# -------------------------------------
+
 # --- CARREGAR MODELO ---
-# Carrega o modelo apenas uma vez na inicialização para ser rápido
 try:
     artefatos = joblib.load('modelo_classificacao_falhas.pkl')
     modelos = artefatos['modelos']
@@ -37,7 +50,7 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# --- DICIONÁRIOS DE MAPEAMENTO (Copiados do seu app.py) ---
+# --- DICIONÁRIOS ---
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -117,11 +130,11 @@ map_mode = {
     '5-OK': 'OK (OK)', 'H000': 'Failed During Operation (Falhou durante operação)'
 }
 
-# --- MODELOS DE DADOS PARA A API ---
+# --- MODELOS DE DADOS ---
 class DadosEntrada(BaseModel):
     tag: str = "N/A"
     descricao: str
-    impacto: str # Espera receber "D", "S", "U" ou "X"
+    impacto: str 
 
 class ResultadoClassificacao(BaseModel):
     codigo: str
@@ -137,18 +150,15 @@ class RespostaAPI(BaseModel):
 # --- ROTA DE CLASSIFICAÇÃO ---
 @app.post("/classificar", response_model=RespostaAPI)
 def classificar_falha(dados: DadosEntrada):
-    # 1. Preparar DataFrame como o modelo espera
     df_input = pd.DataFrame({
         'Tag': [dados.tag],
         'FailureImp': [dados.impacto],
         'Description': [dados.descricao]
     })
     
-    # 2. Limpeza de texto
     df_input['TEXTO_LIMPO'] = df_input['Description'].apply(limpar_texto)
     
     try:
-        # 3. Predição (Pega a de maior probabilidade)
         def prever_top1(coluna, dicionario_map):
             probs = modelos[coluna].predict_proba(df_input)[0]
             idx_max = probs.argmax()
@@ -171,7 +181,7 @@ def classificar_falha(dados: DadosEntrada):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno na predição: {str(e)}")
 
-# --- ROTA DE SAÚDE (Para testar se está on) ---
+# --- ROTA DE SAÚDE ---
 @app.get("/")
 def health_check():
     return {"status": "ok", "mensagem": "API Classificador ISO 14224 está rodando"}
