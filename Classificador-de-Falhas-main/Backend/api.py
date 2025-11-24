@@ -10,11 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-
-# --- 1. CONFIGURAÇÃO DO BANCO DE DADOS (SQLModel) ---
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 
-# Variável injetada pelo Railway. Use o replace para o driver psycopg2
+# --- CONFIGURAÇÃO DO BANCO DE DADOS (SQLModel) ---
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     raise Exception("ERRO: Variável DATABASE_URL não configurada no ambiente.")
@@ -22,7 +20,6 @@ if not DATABASE_URL:
 engine = create_engine(DATABASE_URL.replace("postgres://", "postgresql+psycopg2://"), echo=False)
 
 def create_db_and_tables():
-    # Cria as tabelas se elas não existirem (UserUsage)
     SQLModel.metadata.create_all(engine)
 
 def get_session():
@@ -35,43 +32,36 @@ class UserUsage(SQLModel, table=True):
     name: str 
     individual_count: int = Field(default=0)
     batch_count: int = Field(default=0)
-    total_evaluations: int = Field(default=0) # Limite máximo: 10
+    total_evaluations: int = Field(default=0) 
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     last_use_at: datetime = datetime.utcnow()
 
-# --- 2. FUNÇÕES CORE ML E DICIONÁRIOS ---
+# --- FUNÇÕES ML CORE E DICIONÁRIOS ---
 
-# Configura as stopwords do NLTK
+# Configurações NLTK
 try:
     nltk.data.find('corpora/stopwords')
     stop_words = set(stopwords.words('portuguese'))
 except LookupError:
-    # Este bloco só será executado se o NLTK não foi configurado no Dockerfile
-    print("AVISO: Baixando stopwords do NLTK...")
     nltk.download('stopwords')
     stop_words = set(stopwords.words('portuguese'))
 
 def limpar_texto(texto):
-    if not isinstance(texto, str):
-        return ""
+    if not isinstance(texto, str): return ""
     texto = texto.lower()
     texto = re.sub(r'\d+', '', texto)
     texto = re.sub(r'[^\w\s]', '', texto)
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# Carregamento do Modelo
+# Carregamento do Modelo E DO VETORIZADOR
 try:
     artefatos = joblib.load('modelo_classificacao_falhas.pkl')
     modelos = artefatos['modelos']
     encoders = artefatos['encoders']
-except Exception as e:
-    # Se o modelo não carregar, a API ainda sobe, mas a predição falhará
-    modelos = {}
-    encoders = {}
-    print(f"AVISO: Modelo PKL não carregado. A IA não funcionará. Erro: {e}")
-
-# --- DICIONÁRIOS (Versão Completa e Limpa) ---
+    vectorizer = artefatos['vectorizer'] # <--- NOVO: CARREGA O VETORIZADOR
+    
+ # --- DICIONÁRIOS (Versão Completa e Limpa) ---
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -143,21 +133,23 @@ map_mode = {
     'ISB': 'Information security breach (Violação de segurança da informação)', 'ILP': 'Internal leakage - process medium (Vazamento interno - fluido de processo)', 
     'EFA': 'Electronic failure (Falha eletrônica)'
 }
+except Exception as e:
+    modelos = {}
+    encoders = {}
+    vectorizer = None
+    map_mode, map_mech, map_det = {}, {}, {}
+    print(f"ERRO CRÍTICO: Falha ao carregar artefatos ML: {e}. A IA não funcionará.")
 
 
-# --- 3. CONFIGURAÇÃO DO FASTAPI E CORS ---
+# --- CONFIGURAÇÃO DO FASTAPI E CORS ---
 app = FastAPI(title="API Classificador de Falhas")
 
-# Evento de inicialização para criar as tabelas no DB
 @app.on_event("startup")
 def on_startup():
-    print("Criando tabelas no banco de dados...")
-    # Verifica se o modelo foi carregado para evitar crash se o PKL estiver ausente
     if modelos:
         create_db_and_tables()
 
-# Configuração de CORS
-origins = ["*"] 
+origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -166,10 +158,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# --- 4. MODELOS DE DADOS E ENDPOINTS ---
-
-# Modelos de comunicação com a IA
+# --- MODELOS DE REQUISIÇÃO E RESPOSTA ---
 class DadosEntrada(BaseModel):
     tag: str = "N/A"
     descricao: str
@@ -197,16 +186,16 @@ class BatchProcessRequest(BaseModel):
     batch_size: int = 10 
 
 
+# --- ENDPOINTS ---
+
 # Endpoint de Registro/Login
 @app.post("/register", tags=["Quota Control"])
 def register_user(user: UserRegistration, session: Session = Depends(get_session)):
     user_db = session.get(UserUsage, user.email)
     
     if user_db:
-        # Usuário já existe, retorna o status atual para o frontend saber o contador
         return {"status": "success", "message": "User already registered.", "total_uses": user_db.total_evaluations}
     
-    # Novo usuário: registra no banco
     new_user = UserUsage(email=user.email, name=user.name)
     session.add(new_user)
     session.commit()
@@ -223,14 +212,16 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     if dados.user_email:
         user_db = session.get(UserUsage, dados.user_email)
         
-        # Se o usuário está cadastrado E atingiu o limite (10), bloqueia
         if user_db and user_db.total_evaluations >= 10:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Quota Exceeded. Please contact the developer for more access. (No charge, usage control only)."
             )
     
-    # --- LÓGICA DA IA (Predição TOP 3) ---
+    # --- LÓGICA DA IA ---
+    if not modelos or not vectorizer:
+        raise HTTPException(status_code=503, detail="Modelo/Vectorizador de IA não carregado.")
+        
     df_input = pd.DataFrame({
         'Tag': [dados.tag],
         'FailureImp': [dados.impacto],
@@ -239,8 +230,11 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     df_input['TEXTO_LIMPO'] = limpar_texto(df_input['Description'])
     
     try:
+        # VETORIZAÇÃO É AQUI!
+        X = vectorizer.transform(df_input['TEXTO_LIMPO']) # <--- ONDE ESTAVA O BUG 1
+        
         def prever_top3(coluna, dicionario_map):
-            probs = modelos[coluna].predict_proba(df_input)[0]
+            probs = modelos[coluna].predict_proba(X)[0] # Usa X (features vetorizadas)
             top3_idxs = np.argsort(probs)[-3:][::-1]
             
             resultados = []
@@ -256,8 +250,6 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
         res_mech = prever_top3('FailMech', map_mech)
 
     except Exception as e:
-        if not modelos:
-             raise HTTPException(status_code=503, detail="Modelo de IA não carregado.")
         raise HTTPException(status_code=500, detail=f"Erro na predição da IA: {str(e)}")
 
     # --- ATUALIZA O USO NO BANCO DE DADOS ---
@@ -300,7 +292,6 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
             detail="Quota Exceeded for Batch. Please contact the developer for more access. (No charge, usage control only)."
         )
 
-    # Reserva a quota
     user_db.batch_count += 1
     user_db.total_evaluations += batch_cost
     user_db.last_use_at = datetime.utcnow()
