@@ -1,19 +1,19 @@
 // src/components/BatchProcessor.tsx
-
 import React, { useState, useRef } from 'react';
-import { FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, Loader2, Lock } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-// Importação de todas as funções do serviço de IA
-import { classificarFalha, getUserId } from '../services/aiService'; 
+import { classificarFalha, getUserId } from '../services/aiService'; // Importando getUserId
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 
 interface BatchProcessorProps {
   onBatchComplete: (records: FailureRecord[]) => void;
-  // NOVO: Handlers de Quota (vindos do App.tsx)
   onShowRegister: () => void; 
   onShowLimitReached: () => void; 
 }
+
+// CORREÇÃO CRÍTICA: Definir API_URL que estava faltando
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached }) => {
   const { t, language } = useLanguage();
@@ -26,9 +26,12 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Obtém as credenciais do localStorage na montagem/atualização
+  // Obtém as credenciais do localStorage
   const { email: user_email, name: user_name } = getUserId();
   const isRegistered = !!user_email;
+
+  // --- FUNÇÃO PARA OBTER LABEL ---
+  const getLabel = (map: any, code: string) => map[code] ? map[code][language] : code;
 
   // --- 1. PROCESSAMENTO DO ARQUIVO CSV ---
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,10 +83,10 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const processBatch = async () => {
     if (previewData.length === 0) return;
     
-    // VERIFICAÇÃO CRÍTICA DE REGISTRO ANTES DE INICIAR O LOTE
+    // VERIFICAÇÃO CRÍTICA DE REGISTRO
     if (!isRegistered) {
       setError("O processamento em lote requer registro. Por favor, registre-se na aba Classificador.");
-      onShowRegister(); // Chama o modal para forçar o registro
+      onShowRegister(); 
       return;
     }
     
@@ -91,17 +94,16 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     setProgress(0);
     const results: FailureRecord[] = [];
 
-    // O Frontend faz a requisição inicial para reservar a quota (batch-process endpoint)
-    // O Backend subtrai 10 usos do limite total aqui.
+    // 1. CHAMA O ENDPOINT DE RESERVA DE QUOTA (BATCH-PROCESS)
     try {
         const batchCheckResponse = await fetch(`${API_URL}/batch-process`, {
             method: "POST",
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_email, batch_size: previewData.length }) // Enviamos o email
+            body: JSON.stringify({ user_email, batch_size: previewData.length }) 
         });
 
         if (batchCheckResponse.status === 403) {
-            onShowLimitReached(); // Limite atingido
+            onShowLimitReached(); 
             setProcessing(false);
             return;
         }
@@ -115,25 +117,22 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         return;
     }
 
-
-    // LOOP PRINCIPAL DE PROCESSAMENTO
+    // 2. LOOP PRINCIPAL DE PROCESSAMENTO
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
       let hasQuotaError = false;
 
       try {
-        // INJEÇÃO DE CREDENCIAIS: O email é enviado com cada requisição individual
+        // INJEÇÃO DE CREDENCIAIS: email e nome são enviados com CADA requisição
         const aiRes: RespostaAPI = await classificarFalha({
           tag: row.tag,
           descricao: row.description,
           impacto: row.impact,
-          user_email: user_email || undefined, // Injeta o email do usuário
-          user_name: user_name || undefined 
+          user_email: user_email, 
+          user_name: user_name
         });
-
-        // ... (Lógica de conversão para FailureRecord) ...
-        const getLabel = (map: any, code: string) => map[code] ? map[code][language] : code;
         
+        // Conversão para FailureRecord (usando Top 1)
         const record: FailureRecord = {
           id: Date.now() + i.toString(), tag: row.tag, description: row.description,
           impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact),
@@ -142,12 +141,11 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
           detectionCode: aiRes.deteccao[0].codigo, detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo), confidenceDet: aiRes.deteccao[0].confianca,
           confidence: aiRes.modo[0].confianca, status: 'IA', timestamp: new Date()
         };
-
         results.push(record);
 
       } catch (err: any) {
-        console.error(`Erro na linha ${i}:`, err);
-        setError(`Erro na linha ${i + 1}. Processamento interrompido.`);
+        console.error(`Erro na linha ${i + 1}. Detalhes:`, err);
+        setError(`Erro na linha ${i + 1}. Processamento interrompido. Verifique o console.`);
 
         // Se o erro for de Quota (403), paramos o loop
         if (err.message === "QUOTA_EXCEEDED") {
@@ -156,12 +154,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
            break; 
         }
         
-        results.push({ // Adiciona registro de ERRO
-          id: Date.now() + i.toString(), tag: row.tag, description: row.description,
-          impactCode: 'X', impact: 'Error', modeCode: 'ERR', mode: 'Erro na API', confidenceMode: 0,
-          mechanismCode: 'ERR', mechanism: 'Erro', confidenceMech: 0, detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0,
-          confidence: 0, status: 'IA', timestamp: new Date()
-        });
+        results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Error', modeCode: 'ERR', mode: 'Erro na API', confidenceMode: 0, mechanismCode: 'ERR', mechanism: 'Erro', detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
       }
 
       if (hasQuotaError) break;
@@ -173,8 +166,9 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     onBatchComplete(results);
   };
 
-  // ... (Download Results - downloadResults function is assumed to be correct) ...
+  // --- 3. EXPORTAR CSV ---
   const downloadResults = () => { /* ... */ };
+
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -192,8 +186,8 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
           <button onClick={() => fileInputRef.current?.click()} className="px-6 py-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg flex items-center gap-2 transition-colors"><Upload className="w-5 h-5" /> Selecionar CSV</button>
           
           {file && !isRegistered && !processing && (
-            <button onClick={() => setError("Você precisa estar registrado para processar lotes.")} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg flex items-center gap-2 shadow-lg cursor-not-allowed">
-              <Lock className="w-5 h-5" /> {t('btn_analyze')} (Exige Registro)
+            <button onClick={onShowRegister} className="px-6 py-3 bg-red-600 text-white font-bold rounded-lg flex items-center gap-2 shadow-lg hover:bg-red-700">
+              <Lock className="w-5 h-5" /> {t('nav_batch')} (Exige Registro)
             </button>
           )}
 
@@ -213,7 +207,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
       </div>
 
       {/* Barra de Progresso e Tabela */}
-      {/* ... (restante do código para Progress Bar e Tabela de Resultados) ... */}
+      {/* ... (Tabela de Resultados) ... */}
     </div>
   );
 };
