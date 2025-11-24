@@ -2,16 +2,21 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Copia os requisitos e instala
+# Instala dependências do sistema operacional necessárias para o XGBoost/Scikit (opcional, mas recomendado para evitar erros de build)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o restante dos arquivos
+# Baixa os dados do NLTK durante o build para não travar na execução
+RUN python -m nltk.downloader stopwords
+
 COPY . .
 
-# Expõe a porta que o Streamlit/API usa (Se for Streamlit é 8501, se for API é 8000 ou a variável PORT)
-# Para o Railway, geralmente usamos a variável de ambiente, mas vamos deixar padrão aqui:
-EXPOSE 8501
-
-# Comando para rodar (Ajuste se for app.py ou api.py)
-CMD ["streamlit", "run", "app.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
+# O Railway injeta a variável PORT. O script abaixo usa ela ou 8501 como padrão.
+CMD sh -c 'streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0'
