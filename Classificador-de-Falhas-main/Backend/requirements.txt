@@ -7,3 +7,5 @@ fastapi
 uvicorn
 pydantic
 numpy
+sqlmodel
+psycopg2-binary
