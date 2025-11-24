@@ -9,6 +9,9 @@ interface QuotaModalProps {
   showContactMessage?: boolean;
 }
 
+// O URL base da API deve ser pego do ambiente (VITE_API_URL)
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContactMessage = false }) => {
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
@@ -18,22 +21,24 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
   const handleSubmit = async () => {
     if (!email || !name) return;
     setIsLoading(true);
-    // Chamamos o endpoint de registro do Backend (API)
-    // O Frontend precisa ser responsável por chamar fetch('/register')
     
     try {
-      const response = await fetch('https://fault-finder-ai.up.railway.app', { // <--- SUBSTITUA AQUI PELA URL DA SUA API
+      // CORREÇÃO CRÍTICA: Garantir que o endpoint /register seja chamado
+      const response = await fetch(`${API_URL}/register`, { 
          method: 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({ email, name })
       });
       
       const data = await response.json();
-      if (data.status === 'success' || data.message === 'User already registered.') {
+
+      if (response.ok) {
         onRegister(email, name);
       } else {
-        alert("Erro no registro. Tente novamente.");
+        // Trata erros específicos do servidor (ex: 400 Bad Request)
+        alert(`Falha no Registro: ${data.message || response.statusText}`);
       }
+
     } catch (error) {
       alert("Erro de conexão ao registrar. Verifique o console.");
       console.error(error);
@@ -46,6 +51,7 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
     return (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full relative border-t-4 border-red-500">
+                 <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
                  <Lock className="w-8 h-8 text-red-500 mx-auto mb-4" />
                  <h3 className="text-xl font-bold text-slate-800 mb-2">Limite de Uso Atingido</h3>
                  <p className="text-slate-600 mb-6">Você atingiu o limite de 10 avaliações. Para ter acesso irrestrito, por favor, entre em contato:</p>
@@ -61,6 +67,7 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
   return (
     <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-xl shadow-2xl max-w-md w-full relative">
+         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
         <h3 className="text-xl font-bold text-slate-800 mb-2">Acesso Estendido (Passo 2 de 3)</h3>
         <p className="text-slate-600 mb-6">Você usou as 5 avaliações anônimas. Para continuar, por favor, registre seu nome e e-mail. Isso nos ajuda a controlar o uso da API.</p>
 
