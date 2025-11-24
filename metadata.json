@@ -1,0 +1,5 @@
+{
+  "name": "ISO 14224 AI Classifier",
+  "description": "An enterprise-grade failure classification system based on ISO 14224 standards, featuring AI-assisted classification, batch processing, and analytics.",
+  "requestFramePermissions": []
+}
