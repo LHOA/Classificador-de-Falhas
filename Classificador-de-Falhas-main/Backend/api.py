@@ -2,45 +2,55 @@ import pandas as pd
 import joblib
 import re
 import nltk
-from nltk.corpus import stopwords
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import numpy as np
 import os
+from nltk.corpus import stopwords
+from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime
 
-# --- CONFIGURAÇÃO INICIAL ---
-app = FastAPI(title="API Classificador de Falhas")
+# --- 1. CONFIGURAÇÃO DO BANCO DE DADOS (SQLModel) ---
+from sqlmodel import SQLModel, Field, Session, create_engine, select
 
-# Configuração de CORS (Permite acesso do Frontend)
-origins = ["*"] # Em produção, recomenda-se colocar a URL específica do frontend
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Variável injetada pelo Railway. Use o replace para o driver psycopg2
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise Exception("ERRO: Variável DATABASE_URL não configurada no ambiente.")
 
-# --- CARREGAMENTO DO MODELO ---
-try:
-    artefatos = joblib.load('modelo_classificacao_falhas.pkl')
-    modelos = artefatos['modelos']
-    encoders = artefatos['encoders']
-except Exception as e:
-    # Se der erro local, tente o caminho relativo ou verifique o upload
-    print(f"Erro ao carregar modelo: {e}")
-    raise RuntimeError(f"Erro crítico: Modelo não encontrado. {e}")
+engine = create_engine(DATABASE_URL.replace("postgres://", "postgresql+psycopg2://"), echo=False)
 
-# --- CONFIGURAÇÃO NLTK ---
+def create_db_and_tables():
+    # Cria as tabelas se elas não existirem (UserUsage)
+    SQLModel.metadata.create_all(engine)
+
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+# --- MODELO DE USO ---
+class UserUsage(SQLModel, table=True):
+    email: str = Field(primary_key=True)
+    name: str 
+    individual_count: int = Field(default=0)
+    batch_count: int = Field(default=0)
+    total_evaluations: int = Field(default=0) # Limite máximo: 10
+    registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    last_use_at: datetime = datetime.utcnow()
+
+# --- 2. FUNÇÕES CORE ML E DICIONÁRIOS ---
+
+# Configura as stopwords do NLTK
 try:
     nltk.data.find('corpora/stopwords')
     stop_words = set(stopwords.words('portuguese'))
 except LookupError:
+    # Este bloco só será executado se o NLTK não foi configurado no Dockerfile
+    print("AVISO: Baixando stopwords do NLTK...")
     nltk.download('stopwords')
     stop_words = set(stopwords.words('portuguese'))
 
-# --- FUNÇÕES ÚTEIS ---
 def limpar_texto(texto):
     if not isinstance(texto, str):
         return ""
@@ -50,10 +60,18 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# --- DICIONÁRIOS (Limpos e Atualizados) ---
-# Estes dicionários são usados apenas como fallback ou referência interna
-# A tradução real é feita no Frontend (React)
+# Carregamento do Modelo
+try:
+    artefatos = joblib.load('modelo_classificacao_falhas.pkl')
+    modelos = artefatos['modelos']
+    encoders = artefatos['encoders']
+except Exception as e:
+    # Se o modelo não carregar, a API ainda sobe, mas a predição falhará
+    modelos = {}
+    encoders = {}
+    print(f"AVISO: Modelo PKL não carregado. A IA não funcionará. Erro: {e}")
 
+# --- DICIONÁRIOS (Versão Completa e Limpa) ---
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', 
     '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', 
@@ -126,11 +144,38 @@ map_mode = {
     'EFA': 'Electronic failure (Falha eletrônica)'
 }
 
-# --- MODELOS DE DADOS ---
+
+# --- 3. CONFIGURAÇÃO DO FASTAPI E CORS ---
+app = FastAPI(title="API Classificador de Falhas")
+
+# Evento de inicialização para criar as tabelas no DB
+@app.on_event("startup")
+def on_startup():
+    print("Criando tabelas no banco de dados...")
+    # Verifica se o modelo foi carregado para evitar crash se o PKL estiver ausente
+    if modelos:
+        create_db_and_tables()
+
+# Configuração de CORS
+origins = ["*"] 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# --- 4. MODELOS DE DADOS E ENDPOINTS ---
+
+# Modelos de comunicação com a IA
 class DadosEntrada(BaseModel):
     tag: str = "N/A"
     descricao: str
-    impacto: str 
+    impacto: str
+    user_email: Optional[str] = None
+    user_name: Optional[str] = None
 
 class ItemClassificacao(BaseModel):
     codigo: str
@@ -138,61 +183,134 @@ class ItemClassificacao(BaseModel):
     confianca: float
 
 class RespostaAPI(BaseModel):
-    modo: list[ItemClassificacao]      
-    deteccao: list[ItemClassificacao]   
-    mecanismo: list[ItemClassificacao]  
+    modo: List[ItemClassificacao]
+    deteccao: List[ItemClassificacao]
+    mecanismo: List[ItemClassificacao]
     texto_processado: str
 
-# --- ROTA DE CLASSIFICAÇÃO ---
-@app.post("/classificar", response_model=RespostaAPI)
-def classificar_falha(dados: DadosEntrada):
-    # 1. Preparar DataFrame como o modelo espera
+class UserRegistration(BaseModel):
+    email: str
+    name: str
+
+class BatchProcessRequest(BaseModel):
+    user_email: Optional[str] = None
+    batch_size: int = 10 
+
+
+# Endpoint de Registro/Login
+@app.post("/register", tags=["Quota Control"])
+def register_user(user: UserRegistration, session: Session = Depends(get_session)):
+    user_db = session.get(UserUsage, user.email)
+    
+    if user_db:
+        # Usuário já existe, retorna o status atual para o frontend saber o contador
+        return {"status": "success", "message": "User already registered.", "total_uses": user_db.total_evaluations}
+    
+    # Novo usuário: registra no banco
+    new_user = UserUsage(email=user.email, name=user.name)
+    session.add(new_user)
+    session.commit()
+    session.refresh(new_user)
+    return {"status": "success", "message": "User registered successfully.", "total_uses": 0}
+
+
+# Endpoint de Classificação (Individual)
+@app.post("/classificar", response_model=RespostaAPI, tags=["AI Evaluation"])
+def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_session)):
+    
+    # --- CHECK DE QUOTA ---
+    user_db = None
+    if dados.user_email:
+        user_db = session.get(UserUsage, dados.user_email)
+        
+        # Se o usuário está cadastrado E atingiu o limite (10), bloqueia
+        if user_db and user_db.total_evaluations >= 10:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Quota Exceeded. Please contact the developer for more access. (No charge, usage control only)."
+            )
+    
+    # --- LÓGICA DA IA (Predição TOP 3) ---
     df_input = pd.DataFrame({
         'Tag': [dados.tag],
         'FailureImp': [dados.impacto],
         'Description': [dados.descricao]
     })
-    
-    # 2. Limpeza de texto
-    df_input['TEXTO_LIMPO'] = df_input['Description'].apply(limpar_texto)
+    df_input['TEXTO_LIMPO'] = limpar_texto(df_input['Description'])
     
     try:
-        # 3. Predição (TOP 3)
         def prever_top3(coluna, dicionario_map):
             probs = modelos[coluna].predict_proba(df_input)[0]
-            # Pega os índices dos 3 maiores valores
             top3_idxs = np.argsort(probs)[-3:][::-1]
             
             resultados = []
             for idx in top3_idxs:
                 codigo = encoders[coluna].inverse_transform([idx])[0]
                 confianca = float(probs[idx])
-                
-                # Pega a descrição se existir, ou usa o próprio código
                 texto_desc = dicionario_map.get(codigo, codigo)
-                
-                resultados.append({
-                    "codigo": codigo,
-                    "descricao": texto_desc, 
-                    "confianca": confianca
-                })
+                resultados.append({"codigo": codigo, "descricao": texto_desc, "confianca": confianca})
             return resultados
 
         res_mode = prever_top3('FailMode', map_mode)
         res_det = prever_top3('DetMethod', map_det)
         res_mech = prever_top3('FailMech', map_mech)
 
-        return {
-            "modo": res_mode,
-            "deteccao": res_det,
-            "mecanismo": res_mech,
-            "texto_processado": df_input['TEXTO_LIMPO'].iloc[0]
-        }
-
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro interno na predição: {str(e)}")
+        if not modelos:
+             raise HTTPException(status_code=503, detail="Modelo de IA não carregado.")
+        raise HTTPException(status_code=500, detail=f"Erro na predição da IA: {str(e)}")
 
-# --- ROTA DE SAÚDE ---
+    # --- ATUALIZA O USO NO BANCO DE DADOS ---
+    if user_db:
+        user_db.individual_count += 1
+        user_db.total_evaluations += 1
+        user_db.last_use_at = datetime.utcnow()
+        session.add(user_db)
+        session.commit()
+        
+    return RespostaAPI(
+        modo=res_mode,
+        deteccao=res_det,
+        mecanismo=res_mech,
+        texto_processado=df_input['TEXTO_LIMPO'].iloc[0]
+    )
+
+# Endpoint de Processamento em Lote (Checagem de Quota Prévia)
+@app.post("/batch-process", tags=["Quota Control"])
+def process_batch_check(request: BatchProcessRequest, session: Session = Depends(get_session)):
+    batch_cost = 10 
+    
+    if not request.user_email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Batch processing requires user registration."
+        )
+
+    user_db = session.get(UserUsage, request.user_email)
+    
+    if not user_db:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not registered."
+        )
+        
+    if user_db.total_evaluations + batch_cost > 10:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Quota Exceeded for Batch. Please contact the developer for more access. (No charge, usage control only)."
+        )
+
+    # Reserva a quota
+    user_db.batch_count += 1
+    user_db.total_evaluations += batch_cost
+    user_db.last_use_at = datetime.utcnow()
+    session.add(user_db)
+    session.commit()
+
+    return {"status": "processing_allowed", "message": f"Quota reservada. Você tem {10 - user_db.total_evaluations} usos restantes."}
+
+
+# Rota de Saúde
 @app.get("/")
 def health_check():
     return {"status": "ok", "mensagem": "API Classificador ISO 14224 está rodando"}
