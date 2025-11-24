@@ -8,8 +8,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
   // NOVAS PROPS para gerenciar o fluxo de quota
-  onShowRegister: () => void;
-  onShowLimitReached: () => void;
+  onShowRegister: () => void; // Chama o modal de registro
+  onShowLimitReached: () => void; // Chama a mensagem de limite atingido
   isQuotaEnforced: boolean; // Flag que o pai passa para desabilitar o botão se o limite foi atingido
 }
 
@@ -49,19 +49,18 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
       setResult(aiResult);
       
       setSelectedMode(aiResult.modo[0].codigo);
-      setSelectedMech(aiResult.mecanismo[0].codigo);
-      setSelectedDet(aiResult.deteccao[0].codigo);
+      setSelectedMech(aiRes.mecanismo[0].codigo);
+      setSelectedDet(aiRes.deteccao[0].codigo);
 
     } catch (e: any) {
         // --- NOVO TRATAMENTO DE ERROS DE QUOTA ---
-        if (e.message === "ANON_LIMIT_REACHED" || e.message === "SHOW_REGISTER_MODAL") {
-            // Se atingiu o limite anônimo ou precisa se registrar agora
+        if (e.message === "ANON_LIMIT_REACHED") {
+            // Atingiu o limite anônimo (5), mas ainda não é erro 403
             onShowRegister(); 
         } else if (e.message === "QUOTA_EXCEEDED") {
-            // Se o limite de 10 usos foi atingido (erro do backend)
+            // Limite de 10 usos atingido (erro 403 do backend)
             onShowLimitReached(); 
         } else {
-            // Erro de conexão ou API genérico
             console.error("API Error:", e);
             alert(`Erro na Classificação. Verifique sua conexão. (${e.message})`);
         }
@@ -69,9 +68,8 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
       setIsLoading(false);
     }
   };
-  // --- FIM DA LÓGICA DE CLASSIFICAÇÃO ATUALIZADA ---
-
-
+  // ... (restante do código handleSave e AIDropdown) ...
+  
   const handleSave = () => {
     if (!result) return;
 
@@ -112,7 +110,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     onSave(newRecord);
     setTag(''); setDescription(''); setResult(null);
   };
-
+  
   const AIDropdown = ({ label, value, onChange, optionsAI, mapDictionary }: { label: string, value: string, onChange: (val: string) => void, optionsAI: any[], mapDictionary: any }) => {
     const selectedItemAI = optionsAI.find(opt => opt.codigo === value);
     const confidenceDisplay = selectedItemAI 
@@ -167,7 +165,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
             <Edit2 className="w-5 h-5 text-indigo-600" /> {t('input_title')}
           </h3>
           <div className="space-y-4">
-             {/* ... (Inputs Tag, Impact, Description) ... */}
              <input type="text" className={inputClass} value={tag} onChange={e => setTag(e.target.value)} placeholder={t('placeholder_tag')} />
              <select className={inputClass} value={impact} onChange={e => setImpact(e.target.value)}>{Object.entries(MAP_IMPACTO).map(([k, v]: any) => <option key={k} value={k}>{v[language]}</option>)}</select>
              <textarea className={`${inputClass} h-32 resize-none`} value={description} onChange={e => setDescription(e.target.value)} placeholder={t('placeholder_desc')} />
