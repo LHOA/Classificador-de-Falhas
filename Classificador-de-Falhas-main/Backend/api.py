@@ -156,16 +156,24 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     df_input['TEXTO_LIMPO'] = limpar_texto(dados.descricao)
 
     try:
+        # --- FUNÇÃO PREVER_TOP3 CORRIGIDA ---
         def prever_top3(coluna, dicionario_map):
             probs = modelos[coluna].predict_proba(df_input)[0]
             top3_idxs = np.argsort(probs)[-3:][::-1]
             res = []
             for idx in top3_idxs:
-                cod = encoders[coluna].inverse_transform([idx])[0]
+                # Obtém o código numérico do encoder
+                cod_numerico = encoders[coluna].inverse_transform([idx])[0]
+                
+                # --- CORREÇÃO AQUI: Converte int64 para string ---
+                cod_str = str(cod_numerico)
+                
                 conf = float(probs[idx])
-                txt = dicionario_map.get(cod, cod)
-                res.append({"codigo": cod, "descricao": txt, "confianca": conf})
+                # Usa a string para buscar no dicionário
+                txt = dicionario_map.get(cod_str, cod_str)
+                res.append({"codigo": cod_str, "descricao": txt, "confianca": conf})
             return res
+        # ------------------------------------
 
         res_mode = prever_top3('FailMode', map_mode)
         res_det = prever_top3('DetMethod', map_det)
