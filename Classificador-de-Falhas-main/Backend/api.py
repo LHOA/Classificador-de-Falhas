@@ -143,8 +143,8 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     if dados.user_email:
         user_db = session.get(UserUsage, dados.user_email)
         # --- CHECK PREMIUM E QUOTA ---
-        # Se NÃO for premium E tiver atingido 10, bloqueia.
-        if user_db and (not user_db.is_premium) and user_db.total_evaluations >= 10:
+        # Se NÃO for premium E tiver atingido 30, bloqueia.
+        if user_db and (not user_db.is_premium) and user_db.total_evaluations >= 30:
             raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
     if modelos is None or encoders is None:
@@ -206,9 +206,10 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
         raise HTTPException(status_code=401, detail="User not found")
         
     # --- CHECK PREMIUM E QUOTA (BATCH) ---
-    if (not user_db.is_premium) and (user_db.total_evaluations + request.batch_size > 10):
-        raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
-
+    if (not user_db.is_premium) and (user_db.total_evaluations + request.batch_size > 30):
+        # raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
+pass
+    
     user_db.batch_count += 1
     user_db.total_evaluations += request.batch_size
     user_db.last_use_at = datetime.utcnow()
@@ -218,3 +219,4 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
 
 @app.get("/")
 def health(): return {"status": "ok"}
+
