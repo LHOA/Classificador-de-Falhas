@@ -1,5 +1,5 @@
+// src/App.tsx (Versão com Sincronização de Limite ao Recarregar)
 import React, { useState, useEffect } from 'react';
-import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
@@ -10,6 +10,9 @@ import { FailureRecord, TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { registrarUsuarioNoBackend } from './services/aiService';
 
+// Defina o limite aqui também para facilitar a manutenção
+const GLOBAL_USAGE_LIMIT = 30;
+
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
 
 const AppContent: React.FC = () => {
@@ -17,27 +20,65 @@ const AppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
   const [history, setHistory] = useState<FailureRecord[]>([]);
   
+  // Estado inicial 'needs_register' até provar o contrário
   const [userStatus, setUserStatus] = useState<UserStatus>('needs_register');
-  const [showModal, setShowModal] = useState(false);
+  // Começa true para garantir que a verificação ocorra antes de liberar
+  const [showModal, setShowModal] = useState(true); 
   const [showLimitMessage, setShowLimitMessage] = useState(false);
   
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
 
+  // --- NOVA LÓGICA DE INICIALIZAÇÃO ---
   useEffect(() => {
-    const email = localStorage.getItem('user_email');
-    
-    if (email) {
-        setUserStatus('registered');
-        setShowModal(false);
+    const checkUserStatusOnLoad = async () => {
+        const email = localStorage.getItem('user_email');
+        const name = localStorage.getItem('user_name');
+        
+        if (email && name) {
+            // Se tem dados locais, vamos SINCRONIZAR com o backend para ver o uso real
+            try {
+                setIsRegisteringBackend(true); // Mostra loading se o modal estiver aberto
+                const response = await registrarUsuarioNoBackend(email, name);
+                
+                // VERIFICAÇÃO CRUCIAL: O backend diz que já passou do limite?
+                if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
+                    setUserStatus('limit_reached');
+                    setShowModal(false); // Fecha o modal de registro
+                    setShowLimitMessage(true); // Abre o modal de bloqueio imediatamente
+                } else {
+                    // Se não passou do limite, está liberado
+                    setUserStatus('registered');
+                    setShowModal(false);
+                    setShowLimitMessage(false);
+                }
+            } catch (error) {
+                console.error("Erro ao sincronizar usuário ao iniciar:", error);
+                // Se der erro na sincronização (ex: sem internet), mantemos como 'needs_register' por segurança
+                // ou poderíamos deixar passar, mas é mais seguro bloquear.
+                setUserStatus('needs_register');
+                setShowModal(true);
+            } finally {
+                setIsRegisteringBackend(false);
+            }
+        } else {
+            // Se não tem dados locais, precisa registrar
+            setUserStatus('needs_register');
+            setShowModal(true);
+        }
+    };
+
+    checkUserStatusOnLoad();
+  }, []);
+  // ------------------------------------
+
+  const handleShowRegister = () => {
+    // Se já estiver bloqueado, não adianta mostrar o registro, mostra o bloqueio
+    if (userStatus === 'limit_reached') {
+        setShowLimitMessage(true);
     } else {
         setUserStatus('needs_register');
         setShowModal(true);
     }
-  }, []);
-
-  const handleShowRegister = () => {
-    setUserStatus('needs_register');
-    setShowModal(true);
   };
   
   const handleShowLimitReached = () => {
@@ -47,15 +88,21 @@ const AppContent: React.FC = () => {
 
   const handleRegisterSuccess = async (email: string, name: string) => {
     setIsRegisteringBackend(true);
-
     try {
-        await registrarUsuarioNoBackend(email, name);
+        // O registro inicial também retorna o uso, mas assumimos que é 0 se for novo
+        const response = await registrarUsuarioNoBackend(email, name);
+        
         localStorage.setItem('user_email', email);
         localStorage.setItem('user_name', name);
         
-        setUserStatus('registered');
+        if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
+             setUserStatus('limit_reached');
+             setShowLimitMessage(true);
+        } else {
+             setUserStatus('registered');
+             setShowLimitMessage(false);
+        }
         setShowModal(false);
-        setShowLimitMessage(false);
 
     } catch (error) {
         alert("Houve um problema ao conectar com o servidor de registro. Tente novamente em instantes.");
@@ -93,10 +140,8 @@ const AppContent: React.FC = () => {
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
       
       <div className="flex-1 flex flex-col min-w-0">
-        {/* <Header /> */}
-        
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-           {disableClassifier && !showModal && (
+           {disableClassifier && !showModal && !showLimitMessage && (
              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
                 <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">
                     Clique para Registrar e Acessar
@@ -118,7 +163,7 @@ const AppContent: React.FC = () => {
                 onSave={addRecord} 
                 onShowRegister={handleShowRegister} 
                 onShowLimitReached={handleShowLimitReached} 
-                isQuotaEnforced={isQuotaEnforced || disableClassifier}
+                isQuotaEnforced={isQuotaEnforced}
               />
             )}
             
@@ -127,7 +172,6 @@ const AppContent: React.FC = () => {
                  onBatchComplete={addBatchRecords}
                  onShowRegister={handleShowRegister}
                  onShowLimitReached={handleShowLimitReached}
-                 // --- MUDANÇA AQUI: Passando o status de registro ---
                  isRegistered={userStatus === 'registered'}
               />
             )}
@@ -138,7 +182,7 @@ const AppContent: React.FC = () => {
       </div>
       
       {/* Modais */}
-      {showModal && userStatus === 'needs_register' && (
+      {showModal && userStatus === 'needs_register' && !showLimitMessage && (
         <QuotaModal 
           onRegister={handleRegisterSuccess}
           onClose={() => {}} 
