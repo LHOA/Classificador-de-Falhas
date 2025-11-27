@@ -13,6 +13,8 @@ import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 
 // Limite global para usuários FREE
 const GLOBAL_USAGE_LIMIT = 30;
+// Tempo mínimo de exibição do vídeo (em milissegundos)
+const MINIMUM_LOAD_TIME = 3000; // 3 segundos
 
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
 
@@ -32,43 +34,41 @@ const AppContent: React.FC = () => {
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
 
   // --- LÓGICA DE INICIALIZAÇÃO ---
+  // --- LÓGICA DE INICIALIZAÇÃO BLINDADA COM DELAY ---
   useEffect(() => {
     const checkUserStatusOnLoad = async () => {
         setIsLoading(true);
-        // Usa a função auxiliar que já lê tudo
-        const { email, name, isPremium: initialPremiumState } = getUserId();
         
-        // Define estado inicial baseado no cache local
+        // 1. Inicia o cronômetro para o delay mínimo
+        const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
+        
+        const { email, name, isPremium: initialPremiumState } = getUserId();
+        const anonCount = parseInt(localStorage.getItem('anon_eval_count') || '0', 10);
+        
         setIsPremiumUser(initialPremiumState);
 
         if (email && name) {
+            // 2. Verifica o status do Backend
             try {
-                // Sincroniza com o backend para ter certeza
                 const response = await registrarUsuarioNoBackend(email, name);
                 
-                // Atualiza estado e cache com a resposta fresca do servidor
                 setIsPremiumUser(response.is_premium);
                 localStorage.setItem('user_premium', response.is_premium.toString());
 
-                // --- LÓGICA PRINCIPAL DE ACESSO ---
                 if (response.is_premium) {
-                    // Se é PREMIUM, está sempre liberado, não importa o total_uses
                     setUserStatus('registered');
                     setShowLimitMessage(false);
                 } else if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
-                    // Se é FREE e passou do limite, bloqueia
                     setUserStatus('limit_reached');
                     setShowLimitMessage(true);
                 } else {
-                    // Se é FREE e ainda tem quota, libera
                     setUserStatus('registered');
                     setShowLimitMessage(false);
                 }
                 setShowModal(false);
 
             } catch (error) {
-                console.error("Erro de sincronização. Usando estado local por segurança.");
-                // Se falhar a sincronização, confiamos no cache local se existir, senão pedimos registro
+                console.error("Erro ao sincronizar usuário ao iniciar:", error);
                 if (initialPremiumState) {
                      setUserStatus('registered');
                      setShowModal(false);
@@ -76,19 +76,25 @@ const AppContent: React.FC = () => {
                      setUserStatus('needs_register');
                      setShowModal(true);
                 }
-            } finally {
-                setIsLoading(false);
             }
         } else {
-            setUserStatus('needs_register');
-            setShowModal(true);
-            setIsLoading(false);
+            // 3. Lógica para usuário anônimo (Trial)
+            if (anonCount === 0) {
+                 setUserStatus('trial_run'); 
+                 setShowModal(false);
+            } else {
+                 setUserStatus('needs_register');
+                 setShowModal(true);
+            }
         }
+
+        // 4. Aguarda a conclusão de AMBAS as promessas (Servidor + Timer)
+        await timerPromise;
+        setIsLoading(false); // Libera a tela SOMENTE após o tempo mínimo.
     };
 
     checkUserStatusOnLoad();
   }, []);
-
   // ... (handleShowRegister e handleShowLimitReached permanecem iguais)
   const handleShowRegister = () => {
     if (userStatus === 'limit_reached') { setShowLimitMessage(true); } 
