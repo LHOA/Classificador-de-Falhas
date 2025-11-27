@@ -144,17 +144,32 @@ const AppContent: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+ if (isLoading) {
     return (
-        <div className="flex h-screen bg-slate-50 items-center justify-center">
-            <div className="text-center animate-in fade-in duration-500">
-                <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
-                <h2 className="text-xl font-bold text-slate-700">Iniciando Failure Map...</h2>
-                <p className="text-slate-500 text-sm mt-2">Sincronizando perfil e permissões.</p>
+        <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
+            <div className="text-center animate-in fade-in duration-1000 flex flex-col items-center">
+                
+                {/* Container do Vídeo: 256x256 pixels, com borda arredondada */}
+                <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100">
+                    <video 
+                        src="/loading_pin.mp4" // Caminho para o arquivo na pasta public
+                        autoPlay        // Inicia a reprodução automaticamente
+                        loop            // Garante que toque em loop
+                        muted           // OBRIGATÓRIO: Permite autoplay no Chrome/Safari
+                        playsInline     // OBRIGATÓRIO: Garante que toque no mobile
+                        className="w-full h-full object-cover"
+                    />
+                </div>
+
+                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Failure Map</h2>
+                <p className="text-slate-500 text-sm mt-2 font-medium animate-pulse">
+                    Sincronizando perfil e permissões...
+                </p>
             </div>
         </div>
     );
   }
+  // ---------------------------------------------
 
   const isQuotaEnforced = userStatus === 'limit_reached';
   const disableClassifier = userStatus === 'needs_register'; 
