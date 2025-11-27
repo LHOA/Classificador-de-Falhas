@@ -272,7 +272,3 @@ const App: React.FC = () => {
     </LanguageProvider>
   );
 };
- 
-export default App;
-SVG namespace
- 
