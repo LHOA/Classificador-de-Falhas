@@ -22,15 +22,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
   const { name } = getUserId();
   const userName = name || 'Visitante Anônimo';
   
-  // Link do LinkedIn do desenvolvedor
-  // O link deve ser a URL completa para ser lido corretamente pelo browser
   const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
 
   const handleLogout = () => {
     localStorage.removeItem('user_email');
     localStorage.removeItem('user_name');
     localStorage.removeItem('user_premium');
-    localStorage.removeItem('anon_eval_count');
+    localStorage.removeItem('anon_eval_count'); 
     window.location.reload();
   };
 
@@ -48,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
             </h1>
         </div>
         
-        {/* Perfil (Nome do Usuário) */}
+        {/* Perfil (Nome do Usuário) - LIMPO */}
         <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-xl">
             <div className="relative">
                 <UserCircle2 className="w-8 h-8 text-slate-400" />
@@ -59,14 +57,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
                 )}
             </div>
             <div className="flex-1 overflow-hidden">
-                <p className="font-bold truncate text-sm">{userName}</p>
+                <p className="font-bold truncate text-sm flex items-center gap-2">
+                    {userName}
+                </p>
                 
                 {isPremium ? (
                     <p className="text-xs text-amber-400 font-bold flex items-center gap-1">
-                        <Crown className="w-3 h-3" fill="currentColor" /> Acesso Ilimitado
+                         Acesso Ilimitado
                     </p>
                 ) : (
-                    <p className="text-xs text-slate-500 truncate">{t('profile_role')}</p>
+                    <p className="text-xs text-slate-500 truncate">Usuário Básico</p>
                 )}
             </div>
         </div>
@@ -82,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
         </div>
       </div>
 
-      {/* 2. SEÇÃO DE NAVEGAÇÃO */}
+      {/* 2. SEÇÃO DE NAVEGAÇÃO - ALINHAMENTO CORRIGIDO */}
       <nav className="flex-1 p-4 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
         {navItems(t).map((item) => {
           const Icon = item.icon;
@@ -91,20 +91,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
             <button
               key={item.tab}
               onClick={() => onTabChange(item.tab)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium text-sm  ${/* Adicionado text-sm */''}
                 ${isActive 
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' 
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
             >
-              <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-200' : ''}`} />
+              <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-200' : ''} flex-shrink-0`} />
               {item.label}
             </button>
           );
         })}
       </nav>
 
-      {/* 3. RODAPÉ (PERFIL DO DESENVOLVEDOR - DESTAQUE) */}
+      {/* 3. RODAPÉ (PERFIL DO DESENVOLVEDOR - MANTIDO EM DESTAQUE) */}
       <div className="p-4 border-t border-slate-800/50 bg-slate-800/70">
         
         <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">{t('sidebar_developed_by')}</h4>
@@ -131,4 +131,4 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
   );
 };
 
-export default Sidebar; // <-- Linha de exportação final
+export default Sidebar;
