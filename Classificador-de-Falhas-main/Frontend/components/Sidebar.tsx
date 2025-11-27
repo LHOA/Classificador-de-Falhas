@@ -1,109 +1,112 @@
+// src/components/Sidebar.tsx (Com Ícone Premium)
 import React from 'react';
-import { LayoutDashboard, Microscope, FileSpreadsheet, BookOpen, ExternalLink, UserCircle, Globe } from 'lucide-react';
+// Adicionado o ícone 'Crown'
+import { LayoutDashboard, BrainCircuit, Database, Layers, LogOut, UserCircle2, Crown } from 'lucide-react';
 import { TabView } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getUserId } from '../services/aiService';
 
 interface SidebarProps {
   currentTab: TabView;
   onTabChange: (tab: TabView) => void;
+  // Nova prop
+  isPremium: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
-  // Hook para pegar os textos traduzidos e função de trocar idioma
-  const { language, setLanguage, t } = useLanguage();
+const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium }) => {
+  const { t, language, setLanguage } = useLanguage();
+  const { name } = getUserId();
+  const userName = name || 'Visitante';
 
   const menuItems = [
-    { id: TabView.DASHBOARD, label: t('nav_dashboard'), icon: LayoutDashboard },
-    { id: TabView.CLASSIFIER, label: t('nav_classifier'), icon: Microscope },
-    { id: TabView.BATCH, label: t('nav_batch'), icon: FileSpreadsheet },
-    { id: TabView.DICTIONARY, label: t('nav_dictionary'), icon: BookOpen },
+    { icon: LayoutDashboard, label: t('nav_dashboard'), tab: TabView.DASHBOARD },
+    { icon: BrainCircuit, label: t('nav_classifier'), tab: TabView.CLASSIFIER },
+    { icon: Layers, label: t('nav_batch'), tab: TabView.BATCH },
+    { icon: Database, label: t('nav_dictionary'), tab: TabView.DICTIONARY },
   ];
 
+  const handleLogout = () => {
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_name');
+    localStorage.removeItem('user_premium');
+    window.location.reload();
+  };
+
   return (
-    <aside className="w-20 lg:w-72 bg-slate-900 text-white flex flex-col flex-shrink-0 transition-all duration-300 h-screen sticky top-0 shadow-xl z-30">
-      {/* Logo Section */}
-      <div className="h-24 flex items-center justify-center border-b border-slate-800 bg-slate-950 p-4 relative">
-        <div className="flex flex-col items-center justify-center">
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-2 overflow-hidden border-2 border-indigo-500">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-8 h-8 text-red-700">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2a10 10 0 100 20 10 10 0 000-20z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 10a3.5 3.5 0 017 0" />
-                </svg>
-            </div>
-            <span className="font-bold text-lg tracking-wider text-center leading-none hidden lg:block">
-              FAILURE MAP
-            </span>
+    <aside className="w-64 bg-slate-900 text-white flex flex-col h-full shadow-xl transition-all z-20 md:relative absolute -left-64 md:left-0">
+      
+      {/* Header */}
+      <div className="p-6 flex items-center gap-3 border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
+        <div className="relative">
+            <BrainCircuit className="w-8 h-8 text-indigo-400" />
+            {/* Ícone Premium no Logo (opcional, mas fica legal) */}
+            {isPremium && (
+                <Crown className="w-4 h-4 text-amber-400 absolute -top-1 -right-1 animate-pulse" fill="currentColor" />
+            )}
         </div>
+        <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+          {t('app_title')}
+        </h1>
       </div>
 
-      {/* --- BOTÃO DE IDIOMA NOVO --- */}
-      <div className="px-4 py-3 border-b border-slate-800 flex justify-center lg:justify-start">
-        <button 
-          onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')}
-          className="w-full flex items-center justify-center gap-2 text-xs font-bold bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-lg transition-colors border border-slate-700 group"
-        >
-          <Globe className="w-4 h-4 text-indigo-400 group-hover:text-indigo-300" />
-          <span className="hidden lg:inline text-slate-300 group-hover:text-white">
-            {language === 'pt' ? 'Mudar para English 🇺🇸' : 'Switch to Português 🇧🇷'}
-          </span>
-          <span className="lg:hidden text-slate-300">
-            {language.toUpperCase()}
-          </span>
-        </button>
-      </div>
-      
       {/* Navigation */}
-      <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto">
+      <nav className="flex-1 p-4 space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = currentTab === item.id;
+          const isActive = currentTab === item.tab;
           return (
             <button
-              key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={`w-full flex items-center justify-center lg:justify-start gap-4 px-4 py-3 rounded-xl transition-all duration-200 group relative
+              key={item.tab}
+              onClick={() => onTabChange(item.tab)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium
                 ${isActive 
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50 translate-x-1' 
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' 
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
             >
-              <Icon className={`w-6 h-6 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
-              <span className="hidden lg:block font-medium text-sm">{item.label}</span>
-              
-              {/* Tooltip for mobile */}
-              <div className="lg:hidden absolute left-14 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                {item.label}
-              </div>
+              <Icon className={`w-5 h-5 transition-transform group-hover:scale-110 ${isActive ? 'text-indigo-200' : ''}`} />
+              {item.label}
             </button>
           );
         })}
       </nav>
 
-      {/* Developer Profile Section */}
-      <div className="p-4 border-t border-slate-800 bg-slate-950/50">
-        <div className="flex flex-col gap-3">
-            <div className="hidden lg:flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 border border-slate-600">
-                    <UserCircle className="w-6 h-6 text-slate-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-white truncate">Luis Henrique Oliveira</p>
-                    <p className="text-[10px] text-slate-400 leading-tight mt-0.5">
-                       {t('profile_role')}
-                    </p>
-                </div>
+      {/* Footer (User Profile & Premium Status) */}
+      <div className="p-4 border-t border-slate-800/50 bg-slate-900/30">
+        
+        {/* Seção do Usuário */}
+        <div className="flex items-center gap-3 mb-4 p-3 bg-slate-800/50 rounded-xl">
+            <div className="relative">
+                <UserCircle2 className="w-10 h-10 text-slate-400" />
+                {/* Ícone Premium no Avatar */}
+                {isPremium && (
+                    <div className="absolute -top-1 -right-1 bg-slate-900 rounded-full p-0.5">
+                        <Crown className="w-4 h-4 text-amber-400" fill="currentColor" />
+                    </div>
+                )}
             </div>
+            <div className="flex-1 overflow-hidden">
+                <p className="font-bold truncate text-sm">{userName}</p>
+                
+                {/* Mostra cargo ou status Premium */}
+                {isPremium ? (
+                    <p className="text-xs text-amber-400 font-bold flex items-center gap-1">
+                        <Crown className="w-3 h-3" fill="currentColor" /> Membro Premium
+                    </p>
+                ) : (
+                    <p className="text-xs text-slate-500 truncate">{t('profile_role')}</p>
+                )}
+            </div>
+        </div>
 
-            <a 
-                href="https://www.linkedin.com/in/luishenriqueifma/" 
-                target="_blank" 
-                rel="noreferrer"
-                className="flex items-center justify-center lg:justify-between px-3 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg text-xs font-semibold transition-colors group"
-            >
-                <span className="hidden lg:inline">LinkedIn Profile</span>
-                <ExternalLink className="w-4 h-4" />
-            </a>
+        {/* Botões de Idioma e Logout */}
+        <div className="flex gap-2">
+            <button onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors text-xs font-bold text-slate-300">
+                {language === 'pt' ? '🇺🇸 EN' : '🇧🇷 PT'}
+            </button>
+            <button onClick={handleLogout} className="flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-red-900/30 hover:bg-red-900/20 text-red-400 transition-colors text-xs" title="Sair">
+                <LogOut className="w-4 h-4" />
+            </button>
         </div>
       </div>
     </aside>
