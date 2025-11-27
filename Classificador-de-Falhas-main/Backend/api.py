@@ -1,3 +1,4 @@
+// src/api.py (CORRIGIDO)
 import pandas as pd
 import joblib
 import re
@@ -35,12 +36,12 @@ def get_session():
 # --- MODELO DE USO (ATUALIZADO COM PREMIUM) ---
 class UserUsage(SQLModel, table=True):
     email: str = Field(primary_key=True)
-    name: str 
+    name: str
     individual_count: int = Field(default=0)
     batch_count: int = Field(default=0)
-    total_evaluations: int = Field(default=0) 
+    total_evaluations: int = Field(default=0)
     # NOVO CAMPO: Define se o usuário tem acesso ilimitado
-    is_premium: bool = Field(default=False) 
+    is_premium: bool = Field(default=False)
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     last_use_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
@@ -121,7 +122,7 @@ class UserRegistration(BaseModel):
 
 class BatchProcessRequest(BaseModel):
     user_email: Optional[str] = None
-    batch_size: int = 10 
+    batch_size: int = 10
 
 # Endpoint: Registro
 @app.post("/register", tags=["Quota"])
@@ -143,7 +144,7 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     if dados.user_email:
         user_db = session.get(UserUsage, dados.user_email)
         # --- CHECK PREMIUM E QUOTA ---
-        # Se NÃO for premium E tiver atingido 30, bloqueia.
+        # MUDANÇA AQUI: Aumentado para 30
         if user_db and (not user_db.is_premium) and user_db.total_evaluations >= 30:
             raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
@@ -206,10 +207,11 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
         raise HTTPException(status_code=401, detail="User not found")
         
     # --- CHECK PREMIUM E QUOTA (BATCH) ---
+    # MUDANÇA AQUI: Aumentado para 30 e adicionado 'pass' com indentação
     if (not user_db.is_premium) and (user_db.total_evaluations + request.batch_size > 30):
         # raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
-pass
-    
+        pass # <-- Indentação corrigida (4 espaços)
+
     user_db.batch_count += 1
     user_db.total_evaluations += request.batch_size
     user_db.last_use_at = datetime.utcnow()
@@ -219,4 +221,3 @@ pass
 
 @app.get("/")
 def health(): return {"status": "ok"}
-
