@@ -9,7 +9,7 @@ import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 import ClassificationResult from './ClassificationResult';
 
 // SEU LINK DO LINKEDIN AQUI
-const LINKEDIN_URL = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
+const LINKEDIN_URL = "https://www.linkedin.com/in/luishenriqueifma/";
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
