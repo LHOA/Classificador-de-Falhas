@@ -144,6 +144,7 @@ const AppContent: React.FC = () => {
   };
 
   // --- BLOQUEIO TOTAL DURANTE O CARREGAMENTO (AGORA COM GIF) ---
+  // --- BLOQUEIO TOTAL DURANTE O CARREGAMENTO (AGORA COM CACHE BUST) ---
   if (isLoading) {
     return (
         <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
@@ -152,7 +153,8 @@ const AppContent: React.FC = () => {
                 {/* Container do GIF */}
                 <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100 p-4">
                     <img 
-                        src="/loading.gif" // Caminho para o arquivo na pasta public
+                        // MUDANÇA CRÍTICA: Adicionando um timestamp (cache busting)
+                        src={`/loading.gif?t=${Date.now()}`} 
                         alt="Loading Animation"
                         className="w-full h-full object-contain"
                     />
