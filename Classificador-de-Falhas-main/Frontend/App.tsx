@@ -1,6 +1,6 @@
-// src/App.tsx (Versão Final com Lógica Premium Completa)
+// src/App.tsx (Versão Final com GIF de Carregamento)
 import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, BrainCircuit } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
@@ -11,12 +11,12 @@ import { FailureRecord, TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 
-// Limite global para usuários FREE
+// Limite global
 const GLOBAL_USAGE_LIMIT = 30;
 // Tempo mínimo de exibição do vídeo (em milissegundos)
-const MINIMUM_LOAD_TIME = 10000; // 10 segundos
+const MINIMUM_LOAD_TIME = 2500; // 2.5 segundos
 
-type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
+type UserStatus = 'needs_register' | 'registered' | 'limit_reached' | 'trial_run';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage(); 
@@ -27,19 +27,16 @@ const AppContent: React.FC = () => {
   const [showModal, setShowModal] = useState(true); 
   const [showLimitMessage, setShowLimitMessage] = useState(false);
   
-  // --- NOVO ESTADO PREMIUM ---
   const [isPremiumUser, setIsPremiumUser] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
 
-  // --- LÓGICA DE INICIALIZAÇÃO ---
   // --- LÓGICA DE INICIALIZAÇÃO BLINDADA COM DELAY ---
   useEffect(() => {
     const checkUserStatusOnLoad = async () => {
         setIsLoading(true);
         
-        // 1. Inicia o cronômetro para o delay mínimo
         const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
         
         const { email, name, isPremium: initialPremiumState } = getUserId();
@@ -48,7 +45,6 @@ const AppContent: React.FC = () => {
         setIsPremiumUser(initialPremiumState);
 
         if (email && name) {
-            // 2. Verifica o status do Backend
             try {
                 const response = await registrarUsuarioNoBackend(email, name);
                 
@@ -76,9 +72,13 @@ const AppContent: React.FC = () => {
                      setUserStatus('needs_register');
                      setShowModal(true);
                 }
+            } finally {
+                // 4. Aguarda o timer, se necessário, e libera
+                await timerPromise;
+                setIsLoading(false); 
             }
         } else {
-            // 3. Lógica para usuário anônimo (Trial)
+            // Lógica para usuário anônimo (Trial)
             if (anonCount === 0) {
                  setUserStatus('trial_run'); 
                  setShowModal(false);
@@ -86,38 +86,36 @@ const AppContent: React.FC = () => {
                  setUserStatus('needs_register');
                  setShowModal(true);
             }
+            // 4. Aguarda o timer, se necessário, e libera
+            await timerPromise;
+            setIsLoading(false);
         }
-
-        // 4. Aguarda a conclusão de AMBAS as promessas (Servidor + Timer)
-        await timerPromise;
-        setIsLoading(false); // Libera a tela SOMENTE após o tempo mínimo.
     };
 
     checkUserStatusOnLoad();
   }, []);
-  // ... (handleShowRegister e handleShowLimitReached permanecem iguais)
+  // ------------------------------------
+
   const handleShowRegister = () => {
     if (userStatus === 'limit_reached') { setShowLimitMessage(true); } 
     else { setUserStatus('needs_register'); setShowModal(true); }
   };
+  
   const handleShowLimitReached = () => {
     setUserStatus('limit_reached'); setShowLimitMessage(true);
   };
 
-  // --- HANDLER DE SUCESSO NO REGISTRO (Atualizado) ---
   const handleRegisterSuccess = async (email: string, name: string) => {
     setIsRegisteringBackend(true);
     try {
         const response = await registrarUsuarioNoBackend(email, name);
         
-        // Salva tudo no navegador
         localStorage.setItem('user_email', email);
         localStorage.setItem('user_name', name);
         localStorage.setItem('user_premium', response.is_premium.toString());
         
         setIsPremiumUser(response.is_premium);
 
-        // Aplica a mesma lógica de acesso
         if (response.is_premium) {
              setUserStatus('registered');
              setShowLimitMessage(false);
@@ -137,7 +135,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // ... (addRecord, addBatchRecords, getTitle permanecem iguais)
   const addRecord = (record: FailureRecord) => { setHistory(prev => [record, ...prev]); setCurrentTab(TabView.DASHBOARD); };
   const addBatchRecords = (records: FailureRecord[]) => { setHistory(prev => [...records, ...prev]); setCurrentTab(TabView.DASHBOARD); };
   const getTitle = () => {
@@ -150,20 +147,18 @@ const AppContent: React.FC = () => {
     }
   };
 
- if (isLoading) {
+  // --- BLOQUEIO TOTAL DURANTE O CARREGAMENTO (AGORA COM GIF) ---
+  if (isLoading) {
     return (
         <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
             <div className="text-center animate-in fade-in duration-1000 flex flex-col items-center">
                 
-                {/* Container do Vídeo: 256x256 pixels, com borda arredondada */}
-                <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100">
-                    <video 
-                        src="/loading_pin.mp4" // Caminho para o arquivo na pasta public
-                        autoPlay        // Inicia a reprodução automaticamente
-                        loop            // Garante que toque em loop
-                        muted           // OBRIGATÓRIO: Permite autoplay no Chrome/Safari
-                        playsInline     // OBRIGATÓRIO: Garante que toque no mobile
-                        className="w-full h-full object-cover"
+                {/* Container do GIF */}
+                <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100 p-4">
+                    <img 
+                        src="/loading.gif" // Caminho para o arquivo na pasta public
+                        alt="Loading Animation"
+                        className="w-full h-full object-contain"
                     />
                 </div>
 
@@ -182,7 +177,6 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
-      {/* PASSANDO A NOVA PROP PARA A SIDEBAR */}
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} />
       
       <div className="flex-1 flex flex-col min-w-0">
@@ -218,7 +212,6 @@ const AppContent: React.FC = () => {
                  onBatchComplete={addBatchRecords}
                  onShowRegister={handleShowRegister}
                  onShowLimitReached={handleShowLimitReached}
-                 // Se for premium, consideramos sempre registrado para liberar o botão
                  isRegistered={userStatus === 'registered' || isPremiumUser}
               />
             )}
