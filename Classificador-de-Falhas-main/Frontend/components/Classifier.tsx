@@ -7,7 +7,7 @@ import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 import ClassificationResult from './ClassificationResult';
 
-const LINKEDIN_URL = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
+const LINKEDIN_URL = "https://www.linkedin.com/in/luishenriqueifma/";
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
