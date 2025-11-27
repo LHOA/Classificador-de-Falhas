@@ -1,54 +1,50 @@
-// src/components/QuotaModal.tsx (Versão Final Completa)
+// src/components/QuotaModal.tsx (Versão Traduzida 🌍)
 import React, { useState } from 'react';
-// Importando Loader2 para o spinner
-import { X, Mail, User, Lock, CheckCircle, HeartHandshake, Loader2 } from 'lucide-react';
+import { Mail, User, Lock, CheckCircle, HeartHandshake, Loader2 } from 'lucide-react';
+// 1. Importar o hook de idioma
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface QuotaModalProps {
   onRegister: (email: string, name: string) => void;
   onClose: () => void;
   showContactMessage?: boolean;
-  // Nova prop para controlar o estado de loading do botão final
   isRegistering?: boolean;
 }
 
 const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, isRegistering = false }) => {
+  // 2. Obter a função de tradução 't'
+  const { t } = useLanguage();
+
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  
-  // Novos estados para controle do fluxo
   const [emailError, setEmailError] = useState('');
   const [isSuccessStep, setIsSuccessStep] = useState(false);
 
-  // Regex simples para validação de formato de e-mail
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
   };
 
-  // Função chamada ao tentar enviar o formulário (Etapa 1)
   const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // 1. Validação
     if (!email || !validateEmail(email)) {
-        setEmailError('Por favor, insira um endereço de e-mail válido.');
+        // Usando tradução para erro
+        setEmailError(t('qm_error_email_invalid'));
         return;
     }
-    // Limpa erro se passou
     setEmailError('');
 
     if (!name.trim()) {
-        setEmailError('Por favor, informe seu nome.');
+        // Usando tradução para erro
+        setEmailError(t('qm_error_name_required'));
         return;
     }
 
-    // 2. Se validou, avança para a tela de sucesso (Etapa 2)
     setIsSuccessStep(true);
   };
 
-  // Função chamada ao clicar no botão final "Começar a Usar" (Etapa 2)
   const handleFinalFinish = () => {
-      // Chama a função principal do App.tsx que fará o registro no backend
       onRegister(email, name);
   };
 
@@ -63,15 +59,16 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, isRegister
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
                     <Lock className="w-6 h-6" />
                   </div>
-                  <h2 className="text-xl font-bold">Bem-vindo ao Failure Map</h2>
+                  {/* Textos traduzidos com 't(...)' */}
+                  <h2 className="text-xl font-bold">{t('qm_welcome_title')}</h2>
                   <p className="text-indigo-100 text-sm mt-2">
-                    Para acessar a plataforma gratuitamente, por favor, identifique-se. Isso nos ajuda a manter o serviço seguro para a comunidade.
+                    {t('qm_welcome_text')}
                   </p>
                 </div>
 
                 <form onSubmit={handlePreSubmit} className="p-6 space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Seu Nome</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t('qm_label_name')}</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <User className="w-5 h-5 text-slate-400" />
@@ -82,13 +79,13 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, isRegister
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                        placeholder="Como gostaria de ser chamado?"
+                        placeholder={t('qm_placeholder_name')}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Seu E-mail Profissional</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">{t('qm_label_email')}</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Mail className="w-5 h-5 text-slate-400" />
@@ -97,13 +94,11 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, isRegister
                         type="email"
                         required
                         value={email}
-                        // Limpa o erro ao começar a digitar novamente
                         onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
                         className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 transition-colors ${emailError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500'}`}
-                        placeholder="exemplo@empresa.com"
+                        placeholder={t('qm_placeholder_email')}
                       />
                     </div>
-                    {/* Mensagem de Erro de Validação */}
                     {emailError && (
                         <p className="text-red-500 text-xs mt-1 font-medium">{emailError}</p>
                     )}
@@ -113,52 +108,46 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, isRegister
                     type="submit"
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 mt-6"
                   >
-                    Acessar Plataforma
+                    {t('qm_btn_access_platform')}
                   </button>
                   <p className="text-xs text-center text-slate-500 mt-4">
-                    Seus dados são usados apenas para controle de acesso e estatísticas de uso anônimas.
+                    {t('qm_welcome_disclaimer')}
                   </p>
                 </form>
             </>
         )}
 
-        {/* --- ETAPA 2: MENSAGEM DE BOAS-VINDAS (SUCESSO) --- */}
+        {/* --- ETAPA 2: MENSAGEM DE SUCCESSO --- */}
         {isSuccessStep && (
             <div className="p-8 text-center">
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
                     <CheckCircle className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Cadastro Realizado!</h2>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('qm_success_title')}</h2>
                 
-                {/* Mensagem personalizada com o nome */}
                 <p className="text-lg text-slate-700 font-medium mb-4">
-                    Seja muito bem-vindo(a), <span className="text-indigo-600">{name}</span>!
+                    {t('qm_welcome_user_prefix')} <span className="text-indigo-600">{name}</span>!
                 </p>
                 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm text-slate-600 mb-6 flex flex-col items-center gap-3">
                     <HeartHandshake className="w-8 h-8 text-indigo-400" />
-                    <p>
-                        Esta plataforma é um <strong>projeto totalmente gratuito</strong> para a comunidade de engenharia e manutenção.
-                    </p>
-                    <p>
-                        Bom proveito! Qualquer feedback ou contribuição com bases de dados de falhas reais é super bem-vindo para aprimorarmos a ferramenta para todos.
-                    </p>
+                    {/* Usando dangerouslySetInnerHTML para permitir negrito (<strong>) nas traduções */}
+                    <p dangerouslySetInnerHTML={{ __html: t('qm_community_msg_1') }}></p>
+                    <p>{t('qm_community_msg_2')}</p>
                 </div>
 
-                {/* Botão final com estado de Loading */}
                 <button
                     onClick={handleFinalFinish}
-                    // Desabilita o botão se estiver registrando no backend
                     disabled={isRegistering}
                     className={`w-full font-bold py-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-2
                         ${isRegistering ? 'bg-slate-400 cursor-not-allowed text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                 >
                     {isRegistering ? (
                         <>
-                            <Loader2 className="w-5 h-5 animate-spin" /> Processando Registro...
+                            <Loader2 className="w-5 h-5 animate-spin" /> {t('qm_btn_processing_register')}
                         </>
                     ) : (
-                        "Começar a Usar Agora"
+                        t('qm_btn_start_using')
                     )}
                 </button>
             </div>
