@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, 
-  Loader2, Lock, X, FileText, BarChart3, HardDriveUpload 
+  Loader2, Lock, FileText, BarChart3, HardDriveUpload 
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { classificarFalha, getUserId } from '../services/aiService'; 
@@ -13,10 +13,13 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 interface BatchProcessorProps {
   onBatchComplete: (records: FailureRecord[]) => void;
   onShowRegister: () => void; 
-  onShowLimitReached: () => void; 
+  onShowLimitReached: () => void;
+  // --- NOVA PROP AQUI ---
+  isRegistered: boolean; 
 }
 
-const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached }) => {
+// Agora recebemos isRegistered como prop
+const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached, isRegistered }) => {
   const { t, language } = useLanguage();
   
   // Estados de UI
@@ -30,16 +33,18 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [stats, setStats] = useState({ success: 0, fail: 0 });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { email: user_email, name: user_name } = getUserId();
-  const isRegistered = !!user_email;
 
-  // --- FUNÇÃO SEGURA PARA OBTER LABEL (Corrige o erro 'n is not a function') ---
+  // REMOVIDO A LEITURA INICIAL. VAMOS LER SÓ NA HORA DE PROCESSAR.
+  // const { email: user_email, name: user_name } = getUserId();
+  // const isRegisteredInt = !!user_email; // Não usamos mais essa variável interna
+
+  // --- FUNÇÃO SEGURA PARA OBTER LABEL ---
   const getLabel = (map: any, code: string) => {
-    if (!map || !code) return code; // Proteção contra undefined
+    if (!map || !code) return code;
     if (map[code] && map[code][language]) {
         return map[code][language];
     }
-    return code; // Fallback se não achar tradução
+    return code;
   };
 
   // --- MANIPULAÇÃO DE ARQUIVOS (Drag & Drop) ---
@@ -85,18 +90,16 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         const separator = lines[0].includes(';') ? ';' : ',';
         
         const data = lines.slice(1).map((line, index) => {
-          // Regex simplificado para CSV
           const cols = line.split(separator);
           let tag = 'N/A', desc = '', imp = 'X';
           
           if (cols.length >= 2) {
              tag = cols[0].trim();
-             // Remove aspas extras se houver
              desc = cols[1].trim().replace(/^"|"$/g, '');
              if (cols.length > 2) imp = cols[2].trim();
           }
           return { id: index, tag, description: desc, impact: imp };
-        }).filter(row => row.description.length > 2); // Remove linhas inválidas
+        }).filter(row => row.description.length > 2);
 
         setPreviewData(data);
       } catch (err) {
@@ -109,7 +112,20 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
   // --- PROCESSAMENTO (Batch Loop) ---
   const processBatch = async () => {
+    // Verifica a prop que veio do pai
     if (previewData.length === 0 || !isRegistered) return;
+    
+    // --- CORREÇÃO CRÍTICA: LER CREDENCIAIS AGORA ---
+    // Obtém os dados mais recentes do localStorage no momento do clique
+    const { email: user_email, name: user_name } = getUserId();
+    
+    if (!user_email) {
+        // Se por algum motivo bizarro não tiver email, força o registro
+        onShowRegister();
+        return;
+    }
+    // -----------------------------------------------
+
     setProcessing(true);
     setProgress(0);
     const results: FailureRecord[] = [];
@@ -149,7 +165,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
           user_name: user_name
         });
         
-        // Usando a função segura getLabel
         const record: FailureRecord = {
           id: Date.now() + i.toString(), 
           tag: row.tag, 
@@ -265,6 +280,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                             Trocar Arquivo
                         </button>
                         
+                        {/* LÓGICA DOS BOTÕES CORRIGIDA COM A NOVA PROP */}
                         {!processing && processedData.length === 0 && (
                             isRegistered ? (
                                 <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105">
