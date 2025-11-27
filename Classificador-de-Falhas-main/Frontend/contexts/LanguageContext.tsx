@@ -35,6 +35,27 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       dash_legend_toggle: 'Mostrar Legenda',
       dash_recent: 'Análises Recentes',
       btn_download: 'Baixar Histórico (CSV)', // <--- NOVO
+
+      // --- Quota Modal (Novo) ---
+    qm_welcome_title: "Bem-vindo ao Failure Map",
+    qm_welcome_text: "Para acessar a plataforma gratuitamente, por favor, identifique-se. Isso nos ajuda a manter o serviço seguro para a comunidade.",
+    qm_label_name: "Seu Nome",
+    qm_placeholder_name: "Como gostaria de ser chamado?",
+    qm_label_email: "Seu E-mail Profissional",
+    qm_placeholder_email: "exemplo@empresa.com",
+    qm_error_email_invalid: "Por favor, insira um endereço de e-mail válido.",
+    qm_error_name_required: "Por favor, informe seu nome.",
+    qm_btn_access_platform: "Acessar Plataforma",
+    qm_welcome_disclaimer: "Seus dados são usados apenas para controle de acesso e estatísticas de uso anônimas.",
+    
+    // --- Quota Modal Success Step ---
+    qm_success_title: "Cadastro Realizado!",
+    qm_welcome_user_prefix: "Seja muito bem-vindo(a),",
+    // Nota: Usamos tags HTML <strong> aqui porque o componente agora suporta com dangerouslySetInnerHTML
+    qm_community_msg_1: "Esta plataforma é um <strong>projeto totalmente gratuito</strong> para a comunidade de engenharia e manutenção.",
+    qm_community_msg_2: "Bom proveito! Qualquer feedback ou contribuição com bases de dados de falhas reais é super bem-vindo para aprimorarmos a ferramenta para todos.",
+    qm_btn_start_using: "Começar a Usar Agora",
+    qm_btn_processing_register: "Processando Registro...",
       
       // Classificador
       input_title: 'Dados de Entrada',
@@ -77,6 +98,27 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       dash_legend_toggle: 'Show Legend',
       dash_recent: 'Recent Analysis',
       btn_download: 'Download History (CSV)', // <--- NOVO
+
+      // --- Quota Modal (New) ---
+    qm_welcome_title: "Welcome to Failure Map",
+    qm_welcome_text: "To access the platform for free, please identify yourself. This helps us keep the service secure for the community.",
+    qm_label_name: "Your Name",
+    qm_placeholder_name: "How would you like to be called?",
+    qm_label_email: "Your Professional Email",
+    qm_placeholder_email: "example@company.com",
+    qm_error_email_invalid: "Please enter a valid email address.",
+    qm_error_name_required: "Please enter your name.",
+    qm_btn_access_platform: "Access Platform",
+    qm_welcome_disclaimer: "Your data is used only for access control and anonymous usage statistics.",
+
+    // --- Quota Modal Success Step ---
+    qm_success_title: "Registration Complete!",
+    qm_welcome_user_prefix: "A warm welcome,",
+    // Note: Using HTML <strong> tags here
+    qm_community_msg_1: "This platform is a <strong>completely free project</strong> for the engineering and maintenance community.",
+    qm_community_msg_2: "Enjoy! Any feedback or contribution with real failure databases is highly welcome to improve the tool for everyone.",
+    qm_btn_start_using: "Start Using Now",
+    qm_btn_processing_register: "Processing Registration...",
 
       // Classifier
       input_title: 'Input Data',
