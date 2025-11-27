@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
-import { 
-  FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, 
-  Loader2, Lock, FileText, BarChart3, HardDriveUpload 
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  FileSpreadsheet, Play, AlertCircle, CheckCircle2,
+  Loader2, Lock, FileText, BarChart3, HardDriveUpload, Download
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 // Importamos getUserId para verificar o registro diretamente
-import { classificarFalha, getUserId } from '../services/aiService'; 
+import { classificarFalha, getUserId } from '../services/aiService';
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 
@@ -13,15 +13,15 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 interface BatchProcessorProps {
   onBatchComplete: (records: FailureRecord[]) => void;
-  onShowRegister: () => void; 
+  onShowRegister: () => void;
   onShowLimitReached: () => void;
-  // Mantemos a prop para ajudar na renderização, mas usaremos uma verificação mais forte internamente
-  isRegistered: boolean; 
+  // Propriedade que vem do App.tsx
+  isRegistered: boolean;
 }
 
 const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached, isRegistered }) => {
   const { t, language } = useLanguage();
-  
+
   // Estados de UI
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -31,15 +31,25 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [processedData, setProcessedData] = useState<FailureRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ success: 0, fail: 0 });
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- SOLUÇÃO DEFINITIVA: Check direto no localStorage ---
-  // Pega o email salvo no navegador neste exato momento da renderização
-  const { email: storedEmail } = getUserId();
-  // Se tiver email salvo, consideramos registrado de verdade.
-  // Usamos 'isRegistered' (prop) OU '!!storedEmail' (localStorage) para garantir que o botão atualize.
-  const isEffectivelyRegistered = isRegistered || !!storedEmail;
+  // --- SOLUÇÃO BLINDADA PARA O STATUS DE REGISTRO ---
+  // Estado interno para controlar se mostramos o botão verde ou vermelho
+  const [internalIsRegistered, setInternalIsRegistered] = useState(isRegistered);
+
+  // Este efeito roda sempre que o componente pai (App.tsx) muda a prop 'isRegistered'
+  useEffect(() => {
+      // Verifica o localStorage como garantia
+      const { email: storedEmail } = getUserId();
+
+      // Se o pai diz que está registrado OU se achamos o email no navegador, atualizamos o estado interno.
+      if (isRegistered || storedEmail) {
+          setInternalIsRegistered(true);
+      } else {
+          setInternalIsRegistered(false);
+      }
+  }, [isRegistered]); // Dependência: roda quando isRegistered muda
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // --- FUNÇÃO SEGURA PARA OBTER LABEL ---
   const getLabel = (map: any, code: string) => {
@@ -91,11 +101,11 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         if (lines.length < 2) throw new Error("Arquivo vazio ou sem dados.");
 
         const separator = lines[0].includes(';') ? ';' : ',';
-        
+
         const data = lines.slice(1).map((line, index) => {
           const cols = line.split(separator);
           let tag = 'N/A', desc = '', imp = 'X';
-          
+
           if (cols.length >= 2) {
              tag = cols[0].trim();
              desc = cols[1].trim().replace(/^"|"$/g, '');
@@ -115,14 +125,16 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
   // --- PROCESSAMENTO (Batch Loop) ---
   const processBatch = async () => {
-    // Usa a verificação efetiva para impedir o início se não estiver registrado
-    if (previewData.length === 0 || !isEffectivelyRegistered) return;
-    
+    // Usa o estado interno seguro
+    if (previewData.length === 0 || !internalIsRegistered) return;
+
     // Obtém as credenciais frescas para enviar à API
     const { email: user_email, name: user_name } = getUserId();
-    
+
     if (!user_email) {
+        // Se chegou aqui sem email, algo muito estranho aconteceu, força o registro.
         onShowRegister();
+        setInternalIsRegistered(false); // Força o estado visual para bloqueado
         return;
     }
 
@@ -136,11 +148,11 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         const batchCheckResponse = await fetch(`${API_URL}/batch-process`, {
             method: "POST",
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_email, batch_size: previewData.length }) 
+            body: JSON.stringify({ user_email, batch_size: previewData.length })
         });
 
         if (batchCheckResponse.status === 403) {
-            onShowLimitReached(); 
+            onShowLimitReached();
             setProcessing(false);
             return;
         }
@@ -160,34 +172,34 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
           tag: row.tag,
           descricao: row.description,
           impacto: row.impact,
-          user_email: user_email, 
+          user_email: user_email,
           user_name: user_name
         });
-        
+
         const record: FailureRecord = {
-          id: Date.now() + i.toString(), 
-          tag: row.tag, 
+          id: Date.now() + i.toString(),
+          tag: row.tag,
           description: row.description,
-          impactCode: row.impact, 
+          impactCode: row.impact,
           impact: getLabel(MAP_IMPACTO, row.impact),
-          
-          modeCode: aiRes.modo[0].codigo, 
-          mode: getLabel(MAP_MODE, aiRes.modo[0].codigo), 
+
+          modeCode: aiRes.modo[0].codigo,
+          mode: getLabel(MAP_MODE, aiRes.modo[0].codigo),
           confidenceMode: aiRes.modo[0].confianca,
 
-          mechanismCode: aiRes.mecanismo[0].codigo, 
-          mechanism: getLabel(MAP_MECH, aiRes.mecanismo[0].codigo), 
+          mechanismCode: aiRes.mecanismo[0].codigo,
+          mechanism: getLabel(MAP_MECH, aiRes.mecanismo[0].codigo),
           confidenceMech: aiRes.mecanismo[0].confianca,
 
-          detectionCode: aiRes.deteccao[0].codigo, 
-          detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo), 
+          detectionCode: aiRes.deteccao[0].codigo,
+          detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo),
           confidenceDet: aiRes.deteccao[0].confianca,
 
-          confidence: aiRes.modo[0].confianca, 
-          status: 'IA', 
+          confidence: aiRes.modo[0].confianca,
+          status: 'IA',
           timestamp: new Date()
         };
-        
+
         results.push(record);
         successCount++;
 
@@ -195,16 +207,16 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         console.error(`Linha ${i} falhou:`, err);
         if (err.message === "QUOTA_EXCEEDED") {
            onShowLimitReached();
-           break; 
+           break;
         }
         failCount++;
-        results.push({ 
-            id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Erro', 
+        results.push({
+            id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Erro',
             modeCode: 'ERR', mode: 'Erro API', confidenceMode: 0, mechanismCode: 'ERR', mechanism: 'Erro', confidenceMech: 0,
             detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date()
         });
       }
-      
+
       setProgress(Math.round(((i + 1) / previewData.length) * 100));
     }
 
@@ -218,8 +230,8 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
       if (processedData.length === 0) return;
       const header = ["Tag", "Description", "Impact", "Mode Code", "Mode", "Mech Code", "Mech", "Detection", "Confidence"];
       const rows = processedData.map(r => [
-          r.tag, `"${r.description.replace(/"/g, '""')}"`, r.impactCode, 
-          r.modeCode, r.mode, r.mechanismCode, r.mechanism, r.detection, 
+          r.tag, `"${r.description.replace(/"/g, '""')}"`, r.impactCode,
+          r.modeCode, r.mode, r.mechanismCode, r.mechanism, r.detection,
           (r.confidence*100).toFixed(1)+'%'
       ]);
       const csvContent = ["\uFEFF" + header.join(';'), ...rows.map(r => r.join(';'))].join('\n');
@@ -231,7 +243,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      
+
       {/* --- HEADER & UPLOAD SECTION --- */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-8 text-white text-center">
@@ -247,7 +259,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         <div className="p-8">
             {/* DRAG & DROP AREA */}
             {!file ? (
-                <div 
+                <div
                     className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer
                     ${dragActive ? 'border-indigo-500 bg-indigo-50 scale-[1.02]' : 'border-slate-300 hover:border-indigo-400 hover:bg-slate-50'}`}
                     onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
@@ -273,15 +285,15 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                             <p className="text-sm text-slate-500">{(file.size / 1024).toFixed(1)} KB • {previewData.length} linhas detectadas</p>
                         </div>
                     </div>
-                    
+
                     <div className="flex gap-3">
                         <button onClick={() => setFile(null)} className="px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">
                             Trocar Arquivo
                         </button>
-                        
-                        {/* LÓGICA DOS BOTÕES CORRIGIDA USANDO O CHECK DIRETO */}
+
+                        {/* LÓGICA DOS BOTÕES CORRIGIDA USANDO O ESTADO INTERNO SEGURO */}
                         {!processing && processedData.length === 0 && (
-                            isEffectivelyRegistered ? (
+                            internalIsRegistered ? (
                                 // BOTÃO VERDE (Iniciar)
                                 <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105">
                                     <Play className="w-4 h-4" /> Iniciar Análise
@@ -368,7 +380,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                                     <td className="p-4 text-indigo-700 font-medium">{row.mode}</td>
                                     <td className="p-4 text-emerald-700">{row.mechanism}</td>
                                     <td className="p-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-bold 
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold
                                             ${row.confidence > 0.8 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                                             {(row.confidence * 100).toFixed(0)}%
                                         </span>
