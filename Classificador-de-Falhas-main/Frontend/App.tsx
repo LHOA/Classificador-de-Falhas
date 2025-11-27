@@ -1,4 +1,3 @@
-// src/App.tsx (Versão com Registro no Backend Conectado)
 import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -9,7 +8,6 @@ import Dictionary from './components/Dictionary';
 import QuotaModal from './components/QuotaModal';
 import { FailureRecord, TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-// IMPORTANTE: Importar a nova função do serviço
 import { registrarUsuarioNoBackend } from './services/aiService';
 
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
@@ -23,10 +21,8 @@ const AppContent: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [showLimitMessage, setShowLimitMessage] = useState(false);
   
-  // NOVO ESTADO: Para controlar o loading durante o registro no servidor
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
 
-  // --- 1. Verifica Registro na Inicialização ---
   useEffect(() => {
     const email = localStorage.getItem('user_email');
     
@@ -39,7 +35,6 @@ const AppContent: React.FC = () => {
     }
   }, []);
 
-  // Handlers de Quota
   const handleShowRegister = () => {
     setUserStatus('needs_register');
     setShowModal(true);
@@ -50,36 +45,26 @@ const AppContent: React.FC = () => {
     setShowLimitMessage(true);
   };
 
-  // --- CORREÇÃO PRINCIPAL AQUI: Função agora é ASYNC ---
   const handleRegisterSuccess = async (email: string, name: string) => {
-    // 1. Inicia estado de loading
     setIsRegisteringBackend(true);
 
     try {
-        // 2. Tenta registrar no servidor Python (aguarda a resposta)
         await registrarUsuarioNoBackend(email, name);
-
-        // 3. Se deu certo, salva no navegador
         localStorage.setItem('user_email', email);
         localStorage.setItem('user_name', name);
         
-        // 4. Atualiza a tela
         setUserStatus('registered');
         setShowModal(false);
         setShowLimitMessage(false);
 
     } catch (error) {
-        // Se der erro no servidor, mostramos um alerta (simples por enquanto)
         alert("Houve um problema ao conectar com o servidor de registro. Tente novamente em instantes.");
         console.error("Falha no registro:", error);
-        // Não salvamos no localStorage se falhou no backend
     } finally {
-        // 5. Finaliza o loading, independente de sucesso ou erro
         setIsRegisteringBackend(false);
     }
   };
 
-  // Funções de Dados
   const addRecord = (record: FailureRecord) => {
     setHistory(prev => [record, ...prev]);
     setCurrentTab(TabView.DASHBOARD);
@@ -142,6 +127,8 @@ const AppContent: React.FC = () => {
                  onBatchComplete={addBatchRecords}
                  onShowRegister={handleShowRegister}
                  onShowLimitReached={handleShowLimitReached}
+                 // --- MUDANÇA AQUI: Passando o status de registro ---
+                 isRegistered={userStatus === 'registered'}
               />
             )}
             
@@ -156,7 +143,6 @@ const AppContent: React.FC = () => {
           onRegister={handleRegisterSuccess}
           onClose={() => {}} 
           showContactMessage={false}
-          // Passamos o estado de loading para o modal
           isRegistering={isRegisteringBackend}
         />
       )}
@@ -166,7 +152,6 @@ const AppContent: React.FC = () => {
           onRegister={handleRegisterSuccess}
           onClose={() => setShowLimitMessage(false)}
           showContactMessage={true}
-          // No caso de limite atingido, o registro é instantâneo (só fecha o modal), não precisa de loading
           isRegistering={false} 
         />
       )}
