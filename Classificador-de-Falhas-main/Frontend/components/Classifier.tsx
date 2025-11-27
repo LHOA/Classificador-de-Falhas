@@ -1,15 +1,15 @@
-// src/components/Classifier.tsx (Versão com Botão do LinkedIn no Bloqueio)
+// src/components/Classifier.tsx (CORRIGIDO - Passando onCancel)
 import React, { useState } from 'react';
-// Adicionado ExternalLink
 import { BrainCircuit, Send, AlertTriangle, Sparkles, ArrowRight, Eraser, ExternalLink } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { classificarFalha } from '../services/aiService';
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
+// O erro acontece aqui porque este arquivo não existe ainda:
 import ClassificationResult from './ClassificationResult';
 
-// SEU LINK DO LINKEDIN AQUI (O mesmo usado no QuotaModal)
-const LINKEDIN_URL = "https://www.linkedin.com/in/seu-perfil-aqui/";
+// SEU LINK DO LINKEDIN AQUI
+const LINKEDIN_URL = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
@@ -29,6 +29,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
   const [result, setResult] = useState<RespostaAPI | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Essa é a função que vamos passar para o componente filho
   const handleClear = () => {
     setTag('N/A');
     setDescription('');
@@ -100,7 +101,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
   return (
     <div className="max-w-4xl mx-auto animate-in fade-in duration-500">
       
-      {/* --- Header da Seção --- */}
       <div className="text-center mb-10">
         <div className="inline-flex items-center justify-center p-4 bg-indigo-100 rounded-full mb-4">
             <BrainCircuit className="w-10 h-10 text-indigo-600" />
@@ -120,7 +120,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
                 {t('classifier_form_title')}
             </h3>
             
-            {/* --- NOVO BLOCO DE AVISO DE COTA --- */}
             {isQuotaEnforced && (
               <div className="bg-amber-50 border-l-4 border-amber-500 p-6 mb-8 rounded-r-xl shadow-sm animate-in fade-in duration-300">
                 <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
@@ -128,13 +127,8 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
                     <AlertTriangle className="w-8 h-8" />
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    {/* Reutilizando o título "Limite de Uso..." que já existe nas traduções */}
                     <h4 className="text-lg font-bold text-amber-800 mb-2">{t('qm_limit_title')}</h4>
-                    
-                    {/* Usando dangerouslySetInnerHTML para o negrito na nova mensagem */}
                     <p className="text-amber-700 mb-4 leading-relaxed" dangerouslySetInnerHTML={{ __html: t('classifier_quota_exceeded') }}></p>
-
-                    {/* O novo botão para o LinkedIn */}
                     <a 
                         href={LINKEDIN_URL} 
                         target="_blank" 
@@ -148,7 +142,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
               </div>
             )}
 
-            {/* Formulário (Desabilitado se a cota foi atingida) */}
             <form onSubmit={handleClassify} className={`space-y-6 ${isQuotaEnforced ? 'opacity-50 pointer-events-none filter grayscale' : ''}`}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-1">
@@ -251,7 +244,8 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
 
             {result && !loading && (
                 <div className="animate-in slide-in-from-right duration-500 relative z-20">
-                   <ClassificationResult result={result} onSave={handleSave} />
+                   {/* AQUI ESTÁ A CORREÇÃO: Passando onCancel */}
+                   <ClassificationResult result={result} onSave={handleSave} onCancel={handleClear} />
                 </div>
             )}
         </div>
