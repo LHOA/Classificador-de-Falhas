@@ -14,7 +14,7 @@ import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 // Limite global para usuários FREE
 const GLOBAL_USAGE_LIMIT = 30;
 // Tempo mínimo de exibição do vídeo (em milissegundos)
-const MINIMUM_LOAD_TIME = 3000; // 3 segundos
+const MINIMUM_LOAD_TIME = 10000; // 10 segundos
 
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
 
