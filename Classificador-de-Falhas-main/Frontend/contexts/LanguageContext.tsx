@@ -15,7 +15,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const translations: Record<Language, Record<string, string>> = {
     pt: {
-      // Navegação e Títulos
+      // Navegação
       nav_dashboard: 'Visão Geral',
       nav_classifier: 'Classificador IA',
       nav_batch: 'Processar em Lote',
@@ -23,40 +23,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       app_title: 'Failure Map',
       profile_role: 'Eng. Mecânico | Confiabilidade',
       sidebar_developed_by: 'Desenvolvido por',
-      classifier_title: 'Classificador de Falhas IA (ISO 14224)',
-      classifier_subtitle: 'Insira a descrição da falha para obter a classificação padronizada de Modo, Mecanismo e Método de Detecção.',
-      classifier_form_title: 'Dados de Entrada',
-      classifier_placeholder: 'Descreva a falha com o máximo de detalhes possível.',
-      classifier_no_result: 'Aguardando dados... Insira a descrição da falha ao lado para gerar a classificação.',
-      
-      // Developer Info
       qm_developer_name: 'Luis Henrique Oliveira',
       qm_developer_role_specific: 'Engenheiro de Manutenção e Confiabilidade',
 
-      // Quota Modal
-      qm_welcome_title: "Bem-vindo ao Failure Map",
-      qm_welcome_text: "Para acessar a plataforma gratuitamente, por favor, identifique-se. Isso nos ajuda a manter o serviço seguro para a comunidade.",
-      qm_label_name: "Seu Nome",
-      qm_placeholder_name: "Como gostaria de ser chamado?",
-      qm_label_email: "Seu E-mail Profissional",
-      qm_placeholder_email: "exemplo@empresa.com",
-      qm_error_email_invalid: "Por favor, insira um endereço de e-mail válido.",
-      qm_error_name_required: "Por favor, informe seu nome.",
-      qm_btn_access_platform: "Acessar Plataforma",
-      qm_welcome_disclaimer: "Seus dados são usados apenas para controle de acesso e estatísticas de uso anônimas.",
-      qm_limit_title: "Limite de Uso Gratuito Atingido",
-      qm_limit_text: "Você atingiu o limite inicial de análises gratuitas.<br/><br/>A plataforma é <strong>totalmente gratuita</strong>, mas para liberar o acesso ilimitado e termos um melhor controle da comunidade, por favor, entre em contato com o desenvolvedor:",
-      qm_btn_contact_dev: "Contatar Desenvolvedor (LinkedIn)",
-      qm_success_title: "Cadastro Realizado!",
-      qm_welcome_user_prefix: "Seja muito bem-vindo(a),",
-      qm_community_msg_1: "Esta plataforma é um <strong>projeto totalmente gratuito</strong> para a comunidade de engenharia e manutenção.",
-      qm_community_msg_2: "Bom proveito! Qualquer feedback ou contribuição com bases de dados de falhas reais é super bem-vindo para aprimorarmos a ferramenta para todos.",
-      qm_btn_start_using: "Começar a Usar Agora",
-      qm_btn_processing_register: "Processando Registro...",
-      qm_quota_exceeded: "Limite de uso livre atingido. Para continuar usando de forma <strong>totalmente gratuita</strong>, com acesso ilimitado, por favor, contate o desenvolvedor para liberar seu cadastro.",
-
-
-      // --- GERAIS / BOTÕES (Para o Classifier) ---
+      // Dashboard
       dash_total: 'Total de Registros',
       dash_critical: 'Falhas Críticas',
       dash_impact_title: 'Distribuição por Impacto',
@@ -68,6 +38,38 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       dash_legend_toggle: 'Mostrar Legenda',
       dash_recent: 'Análises Recentes',
       btn_download: 'Baixar Histórico (CSV)',
+
+      // --- Quota Modal (REGISTRO E LIMITE) ---
+      qm_welcome_title: "Bem-vindo ao Failure Map",
+      qm_welcome_text: "Para acessar a plataforma gratuitamente, por favor, identifique-se. Isso nos ajuda a manter o serviço seguro para a comunidade.",
+      qm_label_name: "Seu Nome",
+      qm_placeholder_name: "Como gostaria de ser chamado?",
+      qm_label_email: "Seu E-mail Profissional",
+      qm_placeholder_email: "exemplo@empresa.com",
+      qm_error_email_invalid: "Por favor, insira um endereço de e-mail válido.",
+      qm_error_name_required: "Por favor, informe seu nome.",
+      qm_btn_access_platform: "Acessar Plataforma",
+      qm_welcome_disclaimer: "Seus dados são usados apenas para controle de acesso e estatísticas de uso anônimas.",
+      qm_limit_title: "Limite de Uso Livre Atingido",
+      qm_limit_text: "Você atingiu o limite inicial de análises livres.<br/><br/>A plataforma é <strong>totalmente gratuita</strong>, mas para liberar o acesso ilimitado e termos um melhor controle da comunidade, por favor, entre em contato com o desenvolvedor:",
+      qm_btn_contact_dev: "Contatar Desenvolvedor (LinkedIn)",
+      qm_success_title: "Cadastro Realizado!",
+      qm_welcome_user_prefix: "Seja muito bem-vindo(a),",
+      qm_community_msg_1: "Esta plataforma é um <strong>projeto totalmente gratuito</strong> para a comunidade de engenharia e manutenção.",
+      qm_community_msg_2: "Bom proveito! Qualquer feedback ou contribuição com bases de dados de falhas reais é super bem-vindo para aprimorarmos a ferramenta para todos.",
+      qm_btn_start_using: "Começar a Usar Agora",
+      qm_btn_processing_register: "Processando Registro...",
+
+      // --- Chaves Específicas do Classificador (O QUE ESTAVA FALTANDO) ---
+      classifier_quota_exceeded: "Limite de uso livre atingido. Para continuar usando de forma <strong>totalmente gratuita</strong>, com acesso ilimitado, por favor, contate o desenvolvedor para liberar seu cadastro.",
+      classifier_btn_contact_dev: "Contatar Desenvolvedor (LinkedIn)",
+      classifier_title: 'Classificador de Falhas IA (ISO 14224)',
+      classifier_subtitle: 'Insira a descrição da falha para obter a classificação padronizada de Modo, Mecanismo e Método de Detecção.',
+      classifier_form_title: 'Dados de Entrada',
+      classifier_placeholder: 'Descreva a falha com o máximo de detalhes possível. Ex: Vibração excessiva no mancal do lado acoplado da bomba P-102A, causando ruído anormal e temperatura aumentada.',
+      classifier_no_result: 'Aguardando dados... Insira a descrição da falha ao lado para gerar a classificação.',
+
+      // --- GERAIS / LEGADO ---
       input_title: 'Dados de Entrada',
       label_tag: 'Tag do Equipamento',
       label_impact: 'Impacto da Falha',
@@ -94,7 +96,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       error_generic_api: 'Erro ao processar a solicitação.'
     },
     en: {
-      // Navigation and Titles
+      // Navigation
       nav_dashboard: 'Analytical Overview',
       nav_classifier: 'AI Classifier',
       nav_batch: 'Batch Processing',
@@ -102,17 +104,23 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       app_title: 'Failure Map',
       profile_role: 'Mech. Eng | Reliability',
       sidebar_developed_by: 'Developed by',
-      classifier_title: 'AI Failure Classifier (ISO 14224)',
-      classifier_subtitle: 'Enter the failure description to get standard classification for Mode, Mechanism, and Detection Method.',
-      classifier_form_title: 'Input Data',
-      classifier_placeholder: 'Describe the failure in as much detail as possible. E.g: Excessive vibration on the coupling side bearing of pump P-102A, causing abnormal noise and temperature increase.',
-      classifier_no_result: 'Waiting for data... Enter the failure description on the side to generate the classification.',
-
-      // Developer Info
       qm_developer_name: 'Luis Henrique Oliveira',
       qm_developer_role_specific: 'Maintenance and Reliability Engineer',
 
-      // Quota Modal
+      // Dashboard
+      dash_total: 'Total Records',
+      dash_critical: 'Critical Failures',
+      dash_impact_title: 'Impact Distribution',
+      dash_mode_title: 'Top 5 Failure Modes',
+      dash_mech_title: 'Top 5 Failure Mechanisms',
+      dash_insight_title: 'Analysis Insights',
+      dash_insight_critical: 'of failures are critical (Dead/Serious).',
+      dash_insight_mode: 'is the most recurring failure mode.',
+      dash_legend_toggle: 'Show Legend',
+      dash_recent: 'Recent Analysis',
+      btn_download: 'Download History (CSV)',
+
+      // --- Quota Modal (New) ---
       qm_welcome_title: "Welcome to Failure Map",
       qm_welcome_text: "To access the platform for free, please identify yourself. This helps us keep the service secure for the community.",
       qm_label_name: "Your Name",
@@ -132,20 +140,17 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       qm_community_msg_2: "Enjoy! Any feedback or contribution with real failure databases is highly welcome to improve the tool for everyone.",
       qm_btn_start_using: "Start Using Now",
       qm_btn_processing_register: "Processing Registration...",
-      qm_quota_exceeded: "Free usage limit reached. To continue using it <strong>completely for free</strong> with unlimited access, please contact the developer to unlock your account.",
 
-      // --- GERAIS / BOTÕES (Para o Classifier) ---
-      dash_total: 'Total Records',
-      dash_critical: 'Critical Failures',
-      dash_impact_title: 'Impact Distribution',
-      dash_mode_title: 'Top 5 Failure Modes',
-      dash_mech_title: 'Top 5 Failure Mechanisms',
-      dash_insight_title: 'Analysis Insights',
-      dash_insight_critical: 'of failures are critical (Dead/Serious).',
-      dash_insight_mode: 'is the most recurring failure mode.',
-      dash_legend_toggle: 'Show Legend',
-      dash_recent: 'Recent Analysis',
-      btn_download: 'Download History (CSV)',
+      // --- Chaves Específicas do Classificador (Fix) ---
+      classifier_quota_exceeded: "Free usage limit reached. To continue using it <strong>completely for free</strong> with unlimited access, please contact the developer to unlock your account.",
+      classifier_btn_contact_dev: "Contact Developer (LinkedIn)",
+      classifier_title: 'AI Failure Classifier (ISO 14224)',
+      classifier_subtitle: 'Enter the failure description to get standard classification for Mode, Mechanism, and Detection Method.',
+      classifier_form_title: 'Input Data',
+      classifier_placeholder: 'Describe the failure in as much detail as possible. E.g: Excessive vibration on the coupling side bearing of pump P-102A, causing abnormal noise and temperature increase.',
+      classifier_no_result: 'Waiting for data... Enter the failure description on the side to generate the classification.',
+
+      // --- GERAIS / LEGADO ---
       input_title: 'Input Data',
       label_tag: 'Equipment Tag',
       label_impact: 'Failure Impact',
