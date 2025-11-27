@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, BrainCircuit } from 'lucide-react';
-// Importação correta:
-import Sidebar from './components/Sidebar'; 
+import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
 import BatchProcessor from './components/BatchProcessor';
@@ -13,6 +12,7 @@ import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 
 // Limite global
 const GLOBAL_USAGE_LIMIT = 30;
+const MINIMUM_LOAD_TIME = 2500;
 
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached' | 'trial_run';
 
@@ -132,6 +132,7 @@ const AppContent: React.FC = () => {
 
   const addRecord = (record: FailureRecord) => { setHistory(prev => [record, ...prev]); setCurrentTab(TabView.DASHBOARD); };
   const addBatchRecords = (records: FailureRecord[]) => { setHistory(prev => [...records, ...prev]); setCurrentTab(TabView.DASHBOARD); };
+  
   const getTitle = () => {
     switch (currentTab) {
       case TabView.DASHBOARD: return t('nav_dashboard');
