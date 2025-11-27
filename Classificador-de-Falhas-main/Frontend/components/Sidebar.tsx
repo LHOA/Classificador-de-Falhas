@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
   const userName = name || 'Visitante Anônimo';
   
   // Link do LinkedIn do desenvolvedor
-  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
+  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luishenriqueifma/";
  
   const handleLogout = () => {
     localStorage.removeItem('user_email');
