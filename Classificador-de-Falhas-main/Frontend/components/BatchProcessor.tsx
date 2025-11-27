@@ -4,6 +4,7 @@ import {
   Loader2, Lock, FileText, BarChart3, HardDriveUpload 
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+// Importamos getUserId para verificar o registro diretamente
 import { classificarFalha, getUserId } from '../services/aiService'; 
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
@@ -14,11 +15,10 @@ interface BatchProcessorProps {
   onBatchComplete: (records: FailureRecord[]) => void;
   onShowRegister: () => void; 
   onShowLimitReached: () => void;
-  // --- NOVA PROP AQUI ---
+  // Mantemos a prop para ajudar na renderização, mas usaremos uma verificação mais forte internamente
   isRegistered: boolean; 
 }
 
-// Agora recebemos isRegistered como prop
 const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached, isRegistered }) => {
   const { t, language } = useLanguage();
   
@@ -34,9 +34,12 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // REMOVIDO A LEITURA INICIAL. VAMOS LER SÓ NA HORA DE PROCESSAR.
-  // const { email: user_email, name: user_name } = getUserId();
-  // const isRegisteredInt = !!user_email; // Não usamos mais essa variável interna
+  // --- SOLUÇÃO DEFINITIVA: Check direto no localStorage ---
+  // Pega o email salvo no navegador neste exato momento da renderização
+  const { email: storedEmail } = getUserId();
+  // Se tiver email salvo, consideramos registrado de verdade.
+  // Usamos 'isRegistered' (prop) OU '!!storedEmail' (localStorage) para garantir que o botão atualize.
+  const isEffectivelyRegistered = isRegistered || !!storedEmail;
 
   // --- FUNÇÃO SEGURA PARA OBTER LABEL ---
   const getLabel = (map: any, code: string) => {
@@ -112,19 +115,16 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
   // --- PROCESSAMENTO (Batch Loop) ---
   const processBatch = async () => {
-    // Verifica a prop que veio do pai
-    if (previewData.length === 0 || !isRegistered) return;
+    // Usa a verificação efetiva para impedir o início se não estiver registrado
+    if (previewData.length === 0 || !isEffectivelyRegistered) return;
     
-    // --- CORREÇÃO CRÍTICA: LER CREDENCIAIS AGORA ---
-    // Obtém os dados mais recentes do localStorage no momento do clique
+    // Obtém as credenciais frescas para enviar à API
     const { email: user_email, name: user_name } = getUserId();
     
     if (!user_email) {
-        // Se por algum motivo bizarro não tiver email, força o registro
         onShowRegister();
         return;
     }
-    // -----------------------------------------------
 
     setProcessing(true);
     setProgress(0);
@@ -133,7 +133,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     let failCount = 0;
 
     try {
-        // 1. Reserva Quota
         const batchCheckResponse = await fetch(`${API_URL}/batch-process`, {
             method: "POST",
             headers: { 'Content-Type': 'application/json' },
@@ -280,13 +279,15 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                             Trocar Arquivo
                         </button>
                         
-                        {/* LÓGICA DOS BOTÕES CORRIGIDA COM A NOVA PROP */}
+                        {/* LÓGICA DOS BOTÕES CORRIGIDA USANDO O CHECK DIRETO */}
                         {!processing && processedData.length === 0 && (
-                            isRegistered ? (
+                            isEffectivelyRegistered ? (
+                                // BOTÃO VERDE (Iniciar)
                                 <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105">
                                     <Play className="w-4 h-4" /> Iniciar Análise
                                 </button>
                             ) : (
+                                // BOTÃO VERMELHO (Registro)
                                 <button onClick={onShowRegister} className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-lg flex items-center gap-2">
                                     <Lock className="w-4 h-4" /> Registro Necessário
                                 </button>
@@ -360,28 +361,4 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {processedData.map((row, i) => (
-                                <tr key={i} className="hover:bg-indigo-50/30 transition-colors">
-                                    <td className="p-4 font-bold text-slate-700">{row.tag}</td>
-                                    <td className="p-4 text-slate-600 truncate max-w-xs" title={row.description}>{row.description}</td>
-                                    <td className="p-4 text-indigo-700 font-medium">{row.mode}</td>
-                                    <td className="p-4 text-emerald-700">{row.mechanism}</td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-bold 
-                                            ${row.confidence > 0.8 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                            {(row.confidence * 100).toFixed(0)}%
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default BatchProcessor;
+                            {processedData.map((
