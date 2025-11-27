@@ -3,28 +3,29 @@ import { LayoutDashboard, BrainCircuit, Database, Layers, LogOut, UserCircle2, C
 import { TabView } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getUserId } from '../services/aiService';
- 
+
 interface SidebarProps {
   currentTab: TabView;
   onTabChange: (tab: TabView) => void;
   isPremium: boolean;
 }
- 
+
 const navItems = (t: (key: string) => string) => [
   { icon: LayoutDashboard, label: t('nav_dashboard'), tab: TabView.DASHBOARD },
   { icon: BrainCircuit, label: t('nav_classifier'), tab: TabView.CLASSIFIER },
   { icon: Layers, label: t('nav_batch'), tab: TabView.BATCH },
   { icon: Database, label: t('nav_dictionary'), tab: TabView.DICTIONARY },
 ];
- 
+
 const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium }) => {
   const { t, language, setLanguage } = useLanguage();
   const { name } = getUserId();
   const userName = name || 'Visitante Anônimo';
   
   // Link do LinkedIn do desenvolvedor
-  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luishenriqueifma/";
- 
+  // O link deve ser a URL completa para ser lido corretamente pelo browser
+  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
+
   const handleLogout = () => {
     localStorage.removeItem('user_email');
     localStorage.removeItem('user_name');
@@ -32,9 +33,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
     localStorage.removeItem('anon_eval_count');
     window.location.reload();
   };
- 
+
   return (
-    // Sidebar fixa no mobile e visível no desktop (md:translate-x-0)
     <div className="fixed inset-y-0 left-0 z-30 w-full max-w-[280px] md:max-w-none md:w-64 bg-slate-900 text-white flex flex-col transition-transform duration-300 ease-in-out transform -translate-x-full md:translate-x-0">
       
       {/* 1. SEÇÃO DE TÍTULO E PERFIL DO USUÁRIO LOGADO */}
@@ -70,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
                 )}
             </div>
         </div>
- 
+
         {/* Controles de Logout e Idioma */}
         <div className="flex gap-2 text-xs">
             <button onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors text-slate-300 font-bold">
@@ -81,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
             </button>
         </div>
       </div>
- 
+
       {/* 2. SEÇÃO DE NAVEGAÇÃO */}
       <nav className="flex-1 p-4 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
         {navItems(t).map((item) => {
@@ -92,8 +92,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
               key={item.tab}
               onClick={() => onTabChange(item.tab)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group font-medium
-                ${isActive
-                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20'
+                ${isActive 
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' 
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
             >
@@ -103,7 +103,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
           );
         })}
       </nav>
- 
+
       {/* 3. RODAPÉ (PERFIL DO DESENVOLVEDOR - DESTAQUE) */}
       <div className="p-4 border-t border-slate-800/50 bg-slate-800/70">
         
@@ -116,9 +116,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
                 <p className="text-xs text-indigo-400 mt-0.5">{t('qm_developer_role_specific')}</p>
             </div>
             
-            <a
-                href={DEVELOPER_LINKEDIN}
-                target="_blank"
+            <a 
+                href={DEVELOPER_LINKEDIN} 
+                target="_blank" 
                 rel="noopener noreferrer"
                 className="p-2 bg-indigo-600 hover:bg-indigo-700 rounded-full text-white transition-colors flex-shrink-0"
                 title="Ver Perfil"
@@ -130,3 +130,5 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium })
     </div>
   );
 };
+
+export default Sidebar; // <-- Linha de exportação final
