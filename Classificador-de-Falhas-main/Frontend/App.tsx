@@ -1,6 +1,6 @@
-// src/App.tsx (Versão com Bloqueio de Carregamento Inicial)
+// src/App.tsx (Versão Final com Lógica Premium Completa)
 import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react'; // Importando o ícone de loading
+import { Loader2 } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
@@ -9,9 +9,9 @@ import Dictionary from './components/Dictionary';
 import QuotaModal from './components/QuotaModal';
 import { FailureRecord, TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-import { registrarUsuarioNoBackend } from './services/aiService';
+import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 
-// Limite global
+// Limite global para usuários FREE
 const GLOBAL_USAGE_LIMIT = 30;
 
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
@@ -25,45 +25,61 @@ const AppContent: React.FC = () => {
   const [showModal, setShowModal] = useState(true); 
   const [showLimitMessage, setShowLimitMessage] = useState(false);
   
-  // --- NOVO ESTADO CRÍTICO: Carregamento Inicial ---
-  // Começa TRUE para bloquear tudo até verificar o backend
+  // --- NOVO ESTADO PREMIUM ---
+  const [isPremiumUser, setIsPremiumUser] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
 
-  // --- LÓGICA DE INICIALIZAÇÃO BLINDADA ---
+  // --- LÓGICA DE INICIALIZAÇÃO ---
   useEffect(() => {
     const checkUserStatusOnLoad = async () => {
-        // Garante que estamos carregando
         setIsLoading(true);
+        // Usa a função auxiliar que já lê tudo
+        const { email, name, isPremium: initialPremiumState } = getUserId();
         
-        const email = localStorage.getItem('user_email');
-        const name = localStorage.getItem('user_name');
-        
+        // Define estado inicial baseado no cache local
+        setIsPremiumUser(initialPremiumState);
+
         if (email && name) {
             try {
-                // Pergunta ao backend o status atual
+                // Sincroniza com o backend para ter certeza
                 const response = await registrarUsuarioNoBackend(email, name);
                 
-                if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
+                // Atualiza estado e cache com a resposta fresca do servidor
+                setIsPremiumUser(response.is_premium);
+                localStorage.setItem('user_premium', response.is_premium.toString());
+
+                // --- LÓGICA PRINCIPAL DE ACESSO ---
+                if (response.is_premium) {
+                    // Se é PREMIUM, está sempre liberado, não importa o total_uses
+                    setUserStatus('registered');
+                    setShowLimitMessage(false);
+                } else if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
+                    // Se é FREE e passou do limite, bloqueia
                     setUserStatus('limit_reached');
-                    setShowModal(false);
                     setShowLimitMessage(true);
                 } else {
+                    // Se é FREE e ainda tem quota, libera
                     setUserStatus('registered');
-                    setShowModal(false);
                     setShowLimitMessage(false);
                 }
+                setShowModal(false);
+
             } catch (error) {
-                console.error("Erro ao sincronizar, forçando registro por segurança:", error);
-                setUserStatus('needs_register');
-                setShowModal(true);
+                console.error("Erro de sincronização. Usando estado local por segurança.");
+                // Se falhar a sincronização, confiamos no cache local se existir, senão pedimos registro
+                if (initialPremiumState) {
+                     setUserStatus('registered');
+                     setShowModal(false);
+                } else {
+                     setUserStatus('needs_register');
+                     setShowModal(true);
+                }
             } finally {
-                // --- O PULO DO GATO ---
-                // Só libera a interface DEPOIS que o backend respondeu (ou deu erro)
                 setIsLoading(false);
             }
         } else {
-            // Se não tem dados locais, libera o loading e mostra o modal de registro
             setUserStatus('needs_register');
             setShowModal(true);
             setIsLoading(false);
@@ -72,30 +88,34 @@ const AppContent: React.FC = () => {
 
     checkUserStatusOnLoad();
   }, []);
-  // ------------------------------------
 
+  // ... (handleShowRegister e handleShowLimitReached permanecem iguais)
   const handleShowRegister = () => {
-    if (userStatus === 'limit_reached') {
-        setShowLimitMessage(true);
-    } else {
-        setUserStatus('needs_register');
-        setShowModal(true);
-    }
+    if (userStatus === 'limit_reached') { setShowLimitMessage(true); } 
+    else { setUserStatus('needs_register'); setShowModal(true); }
   };
-  
   const handleShowLimitReached = () => {
-    setUserStatus('limit_reached');
-    setShowLimitMessage(true);
+    setUserStatus('limit_reached'); setShowLimitMessage(true);
   };
 
+  // --- HANDLER DE SUCESSO NO REGISTRO (Atualizado) ---
   const handleRegisterSuccess = async (email: string, name: string) => {
     setIsRegisteringBackend(true);
     try {
         const response = await registrarUsuarioNoBackend(email, name);
+        
+        // Salva tudo no navegador
         localStorage.setItem('user_email', email);
         localStorage.setItem('user_name', name);
+        localStorage.setItem('user_premium', response.is_premium.toString());
         
-        if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
+        setIsPremiumUser(response.is_premium);
+
+        // Aplica a mesma lógica de acesso
+        if (response.is_premium) {
+             setUserStatus('registered');
+             setShowLimitMessage(false);
+        } else if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
              setUserStatus('limit_reached');
              setShowLimitMessage(true);
         } else {
@@ -111,16 +131,9 @@ const AppContent: React.FC = () => {
     }
   };
 
-  const addRecord = (record: FailureRecord) => {
-    setHistory(prev => [record, ...prev]);
-    setCurrentTab(TabView.DASHBOARD);
-  };
-
-  const addBatchRecords = (records: FailureRecord[]) => {
-    setHistory(prev => [...records, ...prev]);
-    setCurrentTab(TabView.DASHBOARD);
-  };
-
+  // ... (addRecord, addBatchRecords, getTitle permanecem iguais)
+  const addRecord = (record: FailureRecord) => { setHistory(prev => [record, ...prev]); setCurrentTab(TabView.DASHBOARD); };
+  const addBatchRecords = (records: FailureRecord[]) => { setHistory(prev => [...records, ...prev]); setCurrentTab(TabView.DASHBOARD); };
   const getTitle = () => {
     switch (currentTab) {
       case TabView.DASHBOARD: return t('nav_dashboard');
@@ -131,26 +144,25 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // --- BLOQUEIO TOTAL DURANTE O CARREGAMENTO ---
   if (isLoading) {
     return (
         <div className="flex h-screen bg-slate-50 items-center justify-center">
             <div className="text-center animate-in fade-in duration-500">
                 <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
                 <h2 className="text-xl font-bold text-slate-700">Iniciando Failure Map...</h2>
-                <p className="text-slate-500 text-sm mt-2">Verificando credenciais e status do servidor.</p>
+                <p className="text-slate-500 text-sm mt-2">Sincronizando perfil e permissões.</p>
             </div>
         </div>
     );
   }
-  // ---------------------------------------------
 
   const isQuotaEnforced = userStatus === 'limit_reached';
   const disableClassifier = userStatus === 'needs_register'; 
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
-      <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
+      {/* PASSANDO A NOVA PROP PARA A SIDEBAR */}
+      <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} />
       
       <div className="flex-1 flex flex-col min-w-0">
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
@@ -185,7 +197,8 @@ const AppContent: React.FC = () => {
                  onBatchComplete={addBatchRecords}
                  onShowRegister={handleShowRegister}
                  onShowLimitReached={handleShowLimitReached}
-                 isRegistered={userStatus === 'registered'}
+                 // Se for premium, consideramos sempre registrado para liberar o botão
+                 isRegistered={userStatus === 'registered' || isPremiumUser}
               />
             )}
             
