@@ -1,4 +1,3 @@
-// src/api.py (CORRIGIDO)
 import pandas as pd
 import joblib
 import re
@@ -221,3 +220,4 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
 
 @app.get("/")
 def health(): return {"status": "ok"}
+
