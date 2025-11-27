@@ -1,4 +1,3 @@
-// src/services/aiService.ts (Versão Limpa - Sem contagem anônima)
 import { FalhaInput, RespostaAPI } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -8,8 +7,6 @@ interface UserCredentials {
     name: string | null;
 }
 
-// NÃO PRECISAMOS MAIS DE ANON_LIMIT AQUI
-
 // Obtém credenciais salvas no localStorage
 export const getUserId = (): UserCredentials => {
     const email = localStorage.getItem('user_email');
@@ -17,17 +14,36 @@ export const getUserId = (): UserCredentials => {
     return { email, name };
 };
 
-// REMOVIDO: getAnonCount
-// REMOVIDO: incrementAnonCount
+// --- NOVA FUNÇÃO: REGISTRAR NO BACKEND ---
+export const registrarUsuarioNoBackend = async (email: string, name: string): Promise<void> => {
+    try {
+        const response = await fetch(`${API_URL}/register`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            // Envia os dados exatamente como o Pydantic do Python espera
+            body: JSON.stringify({ email, name }),
+        });
+
+        if (!response.ok) {
+            // Se der erro (ex: banco fora do ar), lançamos uma exceção
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || `Erro no registro: ${response.status}`);
+        }
+        // Se deu tudo certo (200 OK), a função termina sem erros.
+        
+    } catch (error) {
+        console.error("Erro ao registrar no backend:", error);
+        // Propaga o erro para ser tratado no frontend se necessário
+        throw error;
+    }
+};
 
 // --- FUNÇÃO PRINCIPAL DE CLASSIFICAÇÃO ---
 export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> => {
-    const credentials = getUserId(); // Pega credenciais em tempo real
+    const credentials = getUserId();
 
-    // REMOVIDO: Checagem de limite anônimo. 
-    // O App.tsx agora garante que o usuário só chega aqui se tiver credenciais (ou se o fluxo estiver quebrado, o backend barra).
-
-    // 2. CONSTRUÇÃO DO CORPO DA REQUISIÇÃO
     const bodyData = {
         ...dados,
         user_email: credentials.email,
@@ -47,7 +63,6 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
         throw new Error("CONNECTION_ERROR");
     }
 
-    // 3. TRATAMENTO DE ERROS DA API (403 Quota Exceeded do Backend)
     if (response.status === 403) {
         throw new Error("QUOTA_EXCEEDED");
     }
@@ -55,8 +70,6 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
     if (!response.ok) {
         throw new Error(`Erro na API: ${response.statusText}`);
     }
-
-    // REMOVIDO: incrementAnonCount()
 
     const resultado: RespostaAPI = await response.json();
     return resultado;
