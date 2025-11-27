@@ -1,6 +1,5 @@
-// src/App.tsx (Com Lógica Mobile Finalizada)
 import React, { useState, useEffect } from 'react';
-import { Loader2, BrainCircuit, X } from 'lucide-react';
+import { Loader2, BrainCircuit } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
@@ -15,7 +14,8 @@ import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 const GLOBAL_USAGE_LIMIT = 30;
 const MINIMUM_LOAD_TIME = 2500;
 
-type UserStatus = 'needs_register' | 'registered' | 'limit_reached' | 'trial_run';
+// O status 'trial_run' foi removido
+type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage(); 
@@ -42,11 +42,11 @@ const AppContent: React.FC = () => {
         const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
         
         const { email, name, isPremium: initialPremiumState } = getUserId();
-        const anonCount = parseInt(localStorage.getItem('anon_eval_count') || '0', 10);
         
         setIsPremiumUser(initialPremiumState);
 
         if (email && name) {
+            // 1. USUÁRIO IDENTIFICADO: Sincroniza com o Backend
             try {
                 const response = await registrarUsuarioNoBackend(email, name);
                 
@@ -79,13 +79,9 @@ const AppContent: React.FC = () => {
                 setIsLoading(false);
             }
         } else {
-            if (anonCount === 0) {
-                 setUserStatus('trial_run'); 
-                 setShowModal(false);
-            } else {
-                 setUserStatus('needs_register');
-                 setShowModal(true);
-            }
+            // 2. USUÁRIO ANÔNIMO: BLOQUEIO TOTAL E IMEDIATO
+            setUserStatus('needs_register');
+            setShowModal(true);
             await timerPromise;
             setIsLoading(false);
         }
@@ -175,33 +171,29 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
       
-      {/* 1. SIDEBAR - Transição e Visibilidade (Mobile) */}
       <div className={`fixed inset-y-0 left-0 z-30 w-full max-w-[280px] md:max-w-none md:w-64 bg-slate-900 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} onCloseMobile={() => setIsSidebarOpen(false)} />
       </div>
 
-      {/* 2. OVERLAY (Apenas mobile, quando a sidebar está aberta) - Clicar fecha a sidebar */}
       {isSidebarOpen && (
           <div className="fixed inset-0 z-20 bg-slate-900/50 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>
       )}
       
-      {/* 3. CONTEÚDO PRINCIPAL */}
       <div className="flex-1 flex flex-col min-w-0 md:pl-64">
         
-        {/* Header (Botão de Hamburguer - VISÍVEL APENAS EM MOBILE) */}
         <header className="md:hidden h-16 flex items-center justify-between p-4 border-b border-slate-200 bg-white shadow-sm z-10">
-           {/* Botão de abrir sidebar em mobile - CORRIGIDO: Adicionado onClick */}
            <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-indigo-600">
              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
              </svg>
            </button>
            <span className="text-xl font-bold text-slate-900">{getTitle()}</span>
-           {/* Espaçador para balancear e usar o X da sidebar para fechar */}
-           <div className="w-6 h-6"></div> 
+           <div className="w-6 h-6"></div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+           
+           {/* BLOQUEIO TOTAL AQUI SE NECESSÁRIO REGISTRO */}
            {disableClassifier && !showModal && !showLimitMessage && (
              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
                 <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">
