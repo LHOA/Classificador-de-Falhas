@@ -47,6 +47,13 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     qm_error_name_required: "Por favor, informe seu nome.",
     qm_btn_access_platform: "Acessar Plataforma",
     qm_welcome_disclaimer: "Seus dados são usados apenas para controle de acesso e estatísticas de uso anônimas.",
+
+      // --- Quota Limit Reached ---
+    qm_limit_title: "Limite de Uso Gratuito Atingido",
+    // Usamos HTML para destacar o nome e permitir quebra de linha
+    qm_limit_text: "Você atingiu o limite inicial de análises gratuitas.<br/><br/>A plataforma é <strong>totalmente gratuita</strong>, mas para liberar o acesso ilimitado e termos um melhor controle da comunidade, por favor, entre em contato com o desenvolvedor:",
+    qm_developer_name: "Luis Henrique Oliveira",
+    qm_btn_contact_dev: "Contatar Desenvolvedor (LinkedIn)",
     
     // --- Quota Modal Success Step ---
     qm_success_title: "Cadastro Realizado!",
@@ -119,6 +126,12 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     qm_community_msg_2: "Enjoy! Any feedback or contribution with real failure databases is highly welcome to improve the tool for everyone.",
     qm_btn_start_using: "Start Using Now",
     qm_btn_processing_register: "Processing Registration...",
+
+      // --- Quota Limit Reached ---
+    qm_limit_title: "Free Usage Limit Reached",
+    qm_limit_text: "You have reached the initial limit of free analyses.<br/><br/>The platform is <strong>completely free</strong>, but to unlock unlimited access and for better community control, please contact the developer:",
+    qm_developer_name: "Luis Henrique Oliveira",
+    qm_btn_contact_dev: "Contact Developer (LinkedIn)",
 
       // Classifier
       input_title: 'Input Data',
