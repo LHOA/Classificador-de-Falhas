@@ -1,4 +1,5 @@
-// src/App.tsx (Versão Final com GIF de Carregamento)
+// src/App.tsx
+ 
 import React, { useState, useEffect } from 'react';
 import { Loader2, BrainCircuit } from 'lucide-react';
 import Sidebar from './components/Sidebar';
@@ -10,14 +11,14 @@ import QuotaModal from './components/QuotaModal';
 import { FailureRecord, TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
-
-// Limite global
+ 
+// Limite global de uso gratuito para não-premium
 const GLOBAL_USAGE_LIMIT = 30;
-// Tempo mínimo de exibição do vídeo (em milissegundos)
+// Tempo mínimo de exibição do GIF de carregamento (em milissegundos)
 const MINIMUM_LOAD_TIME = 2500; // 2.5 segundos
-
+ 
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached' | 'trial_run';
-
+ 
 const AppContent: React.FC = () => {
   const { t } = useLanguage(); 
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
@@ -31,26 +32,28 @@ const AppContent: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
-
-  // --- LÓGICA DE INICIALIZAÇÃO BLINDADA COM DELAY ---
+ 
+  // --- LÓGICA DE INICIALIZAÇÃO BLINDADA COM DELAY MÍNIMO ---
   useEffect(() => {
     const checkUserStatusOnLoad = async () => {
         setIsLoading(true);
         
+        // 1. Inicia o cronômetro para o delay mínimo
         const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
         
         const { email, name, isPremium: initialPremiumState } = getUserId();
         const anonCount = parseInt(localStorage.getItem('anon_eval_count') || '0', 10);
         
         setIsPremiumUser(initialPremiumState);
-
+ 
         if (email && name) {
+            // 2. Verifica o status do Backend
             try {
                 const response = await registrarUsuarioNoBackend(email, name);
                 
                 setIsPremiumUser(response.is_premium);
                 localStorage.setItem('user_premium', response.is_premium.toString());
-
+ 
                 if (response.is_premium) {
                     setUserStatus('registered');
                     setShowLimitMessage(false);
@@ -62,7 +65,7 @@ const AppContent: React.FC = () => {
                     setShowLimitMessage(false);
                 }
                 setShowModal(false);
-
+ 
             } catch (error) {
                 console.error("Erro ao sincronizar usuário ao iniciar:", error);
                 if (initialPremiumState) {
@@ -73,12 +76,12 @@ const AppContent: React.FC = () => {
                      setShowModal(true);
                 }
             } finally {
-                // 4. Aguarda o timer, se necessário, e libera
+                // 3. Aguarda a conclusão de AMBAS as promessas (Servidor + Timer)
                 await timerPromise;
-                setIsLoading(false); 
+                setIsLoading(false); // Libera a tela SOMENTE após o tempo mínimo.
             }
         } else {
-            // Lógica para usuário anônimo (Trial)
+            // 4. Lógica para usuário anônimo (Trial)
             if (anonCount === 0) {
                  setUserStatus('trial_run'); 
                  setShowModal(false);
@@ -86,16 +89,16 @@ const AppContent: React.FC = () => {
                  setUserStatus('needs_register');
                  setShowModal(true);
             }
-            // 4. Aguarda o timer, se necessário, e libera
+            // 5. Aguarda o timer, se necessário, e libera
             await timerPromise;
             setIsLoading(false);
         }
     };
-
+ 
     checkUserStatusOnLoad();
   }, []);
   // ------------------------------------
-
+ 
   const handleShowRegister = () => {
     if (userStatus === 'limit_reached') { setShowLimitMessage(true); } 
     else { setUserStatus('needs_register'); setShowModal(true); }
@@ -104,7 +107,7 @@ const AppContent: React.FC = () => {
   const handleShowLimitReached = () => {
     setUserStatus('limit_reached'); setShowLimitMessage(true);
   };
-
+ 
   const handleRegisterSuccess = async (email: string, name: string) => {
     setIsRegisteringBackend(true);
     try {
@@ -115,7 +118,7 @@ const AppContent: React.FC = () => {
         localStorage.setItem('user_premium', response.is_premium.toString());
         
         setIsPremiumUser(response.is_premium);
-
+ 
         if (response.is_premium) {
              setUserStatus('registered');
              setShowLimitMessage(false);
@@ -127,16 +130,17 @@ const AppContent: React.FC = () => {
              setShowLimitMessage(false);
         }
         setShowModal(false);
-
+ 
     } catch (error) {
         alert("Houve um problema ao conectar com o servidor de registro.");
     } finally {
         setIsRegisteringBackend(false);
     }
   };
-
+ 
   const addRecord = (record: FailureRecord) => { setHistory(prev => [record, ...prev]); setCurrentTab(TabView.DASHBOARD); };
   const addBatchRecords = (records: FailureRecord[]) => { setHistory(prev => [...records, ...prev]); setCurrentTab(TabView.DASHBOARD); };
+  
   const getTitle = () => {
     switch (currentTab) {
       case TabView.DASHBOARD: return t('nav_dashboard');
@@ -146,11 +150,11 @@ const AppContent: React.FC = () => {
       default: return t('app_title');
     }
   };
-
+ 
   // --- BLOQUEIO TOTAL DURANTE O CARREGAMENTO (AGORA COM GIF) ---
   if (isLoading) {
     return (
-        <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
+        <div className="flex h-screen bg-slate-50 items-center justify-center overflow-hidden">
             <div className="text-center animate-in fade-in duration-1000 flex flex-col items-center">
                 
                 {/* Container do GIF */}
@@ -161,7 +165,7 @@ const AppContent: React.FC = () => {
                         className="w-full h-full object-contain"
                     />
                 </div>
-
+ 
                 <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Failure Map</h2>
                 <p className="text-slate-500 text-sm mt-2 font-medium animate-pulse">
                     Sincronizando perfil e permissões...
@@ -171,16 +175,33 @@ const AppContent: React.FC = () => {
     );
   }
   // ---------------------------------------------
-
+ 
   const isQuotaEnforced = userStatus === 'limit_reached';
   const disableClassifier = userStatus === 'needs_register'; 
-
+ 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
+      
+      {/* Sidebar - Componente fixo e responsivo */}
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} />
       
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Container Principal do Conteúdo */}
+      <div className="flex-1 flex flex-col min-w-0 md:pl-64"> {/* md:pl-64 cria o espaço para a sidebar em desktop */}
+        
+        {/* Header para Mobile (com botão de menu "hambúrguer" - a lógica de clique não está implementada) */}
+        <header className="md:hidden h-16 flex items-center justify-between p-4 border-b border-slate-200 bg-white shadow-sm">
+           <span className="text-xl font-bold text-slate-900">{getTitle()}</span>
+           {/* Botão de abrir/fechar sidebar em mobile (apenas visual, a lógica JS de clique não está aqui) */}
+           <button className="text-slate-600 hover:text-indigo-600">
+             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+             </svg>
+           </button>
+        </header>
+ 
+ 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+           {/* Overlay de bloqueio para usuários não registrados */}
            {disableClassifier && !showModal && !showLimitMessage && (
              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
                 <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">
@@ -188,14 +209,15 @@ const AppContent: React.FC = () => {
                 </button>
              </div>
            )}
-
+ 
            <div className="max-w-7xl mx-auto">
-            <div className="mb-6">
+            <div className="mb-6 hidden md:block"> {/* Título da aba atual em Desktop */}
               <h2 className="text-2xl font-bold text-slate-900 capitalize">
                 {getTitle()}
               </h2>
             </div>
-
+ 
+            {/* Renderização das Telas */}
             {currentTab === TabView.DASHBOARD && <Dashboard data={history} />}
             
             {currentTab === TabView.CLASSIFIER && (
@@ -221,7 +243,7 @@ const AppContent: React.FC = () => {
         </main>
       </div>
       
-      {/* Modais */}
+      {/* Modais (Renderizados fora do fluxo principal para fácil sobreposição) */}
       {showModal && userStatus === 'needs_register' && !showLimitMessage && (
         <QuotaModal 
           onRegister={handleRegisterSuccess}
@@ -242,7 +264,7 @@ const AppContent: React.FC = () => {
     </div>
   );
 };
-
+ 
 const App: React.FC = () => {
   return (
     <LanguageProvider>
@@ -250,5 +272,7 @@ const App: React.FC = () => {
     </LanguageProvider>
   );
 };
-
+ 
 export default App;
+SVG namespace
+ 
