@@ -128,12 +128,15 @@ class BatchProcessRequest(BaseModel):
 def register_user(user: UserRegistration, session: Session = Depends(get_session)):
     user_db = session.get(UserUsage, user.email)
     if user_db:
-        return {"status": "success", "message": "User registered.", "total_uses": user_db.total_evaluations}
+        # MUDANÇA AQUI: Adicionado "is_premium": user_db.is_premium
+        return {"status": "success", "message": "User registered.", "total_uses": user_db.total_evaluations, "is_premium": user_db.is_premium}
     
     new_user = UserUsage(email=user.email, name=user.name)
+    # Usuários novos começam como False por padrão, conforme definido no modelo
     session.add(new_user)
     session.commit()
-    return {"status": "success", "message": "Registered.", "total_uses": 0}
+    # MUDANÇA AQUI: Adicionado "is_premium": new_user.is_premium
+    return {"status": "success", "message": "Registered.", "total_uses": 0, "is_premium": new_user.is_premium}
 
 # Endpoint: Classificar
 @app.post("/classificar", response_model=RespostaAPI)
@@ -220,4 +223,5 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
 
 @app.get("/")
 def health(): return {"status": "ok"}
+
 
