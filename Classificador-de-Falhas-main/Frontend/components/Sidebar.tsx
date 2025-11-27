@@ -1,7 +1,7 @@
-// src/components/Sidebar.tsx (Versão Final e Responsiva)
+// src/components/Sidebar.tsx (Versão Final com Botão de Fechar Funcional)
 import React from 'react';
-// Removido LogOut daqui
-import { LayoutDashboard, BrainCircuit, Database, Layers, UserCircle2, Crown, Globe, ExternalLink } from 'lucide-react';
+// Adicionado X (close icon) na lista de imports
+import { LayoutDashboard, BrainCircuit, Database, Layers, UserCircle2, Crown, Globe, ExternalLink, X } from 'lucide-react';
 import { TabView } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { getUserId } from '../services/aiService';
@@ -10,7 +10,7 @@ interface SidebarProps {
   currentTab: TabView;
   onTabChange: (tab: TabView) => void;
   isPremium: boolean;
-  // Adicionado handler para fechar a sidebar em mobile
+  // Handler para fechar a sidebar em mobile
   onCloseMobile: () => void;
 }
 
@@ -26,17 +26,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
   const { name } = getUserId();
   const userName = name || 'Visitante Anônimo';
   
-  // Link do LinkedIn do desenvolvedor
   const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luishenriqueifma/";
 
-  // --- FUNÇÃO DE LOGOUT REMOVIDA ---
-  
   const handleTabChange = (tab: TabView) => {
       onTabChange(tab);
       onCloseMobile(); // Fecha a sidebar ao clicar em um item no mobile
   };
 
   return (
+    // Removido o translate-x-full daqui, o App.tsx controla a transição
     <div className="w-full max-w-[280px] md:max-w-none md:w-64 bg-slate-900 text-white flex flex-col h-full">
       
       {/* 1. SEÇÃO DE TÍTULO E PERFIL DO USUÁRIO LOGADO */}
@@ -50,13 +48,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
                   {t('app_title')}
                 </h1>
             </div>
-            {/* Botão de Fechar (Apenas para Mobile) */}
+            {/* Botão de Fechar (Apenas para Mobile) - AGORA COM O X IMPORTADO */}
             <button onClick={onCloseMobile} className="md:hidden text-slate-400 hover:text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                <X className="w-5 h-5" />
             </button>
         </div>
         
-        {/* Perfil (Nome do Usuário) - CORRIGIDO: Removido o cargo genérico */}
+        {/* Perfil (Nome do Usuário) */}
         <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-xl">
             <div className="relative">
                 <UserCircle2 className="w-8 h-8 text-slate-400" />
@@ -88,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
         </div>
       </div>
 
-      {/* 2. SEÇÃO DE NAVEGAÇÃO - ALINHAMENTO CORRIGIDO */}
+      {/* 2. SEÇÃO DE NAVEGAÇÃO */}
       <nav className="flex-1 p-4 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
         {navItems(t).map((item) => {
           const Icon = item.icon;
