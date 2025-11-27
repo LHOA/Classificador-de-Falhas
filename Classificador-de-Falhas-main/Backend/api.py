@@ -39,7 +39,6 @@ class UserUsage(SQLModel, table=True):
     individual_count: int = Field(default=0)
     batch_count: int = Field(default=0)
     total_evaluations: int = Field(default=0)
-    # NOVO CAMPO: Define se o usuário tem acesso ilimitado
     is_premium: bool = Field(default=False)
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     last_use_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
@@ -128,14 +127,12 @@ class BatchProcessRequest(BaseModel):
 def register_user(user: UserRegistration, session: Session = Depends(get_session)):
     user_db = session.get(UserUsage, user.email)
     if user_db:
-        # MUDANÇA AQUI: Adicionado "is_premium": user_db.is_premium
         return {"status": "success", "message": "User registered.", "total_uses": user_db.total_evaluations, "is_premium": user_db.is_premium}
     
     new_user = UserUsage(email=user.email, name=user.name)
-    # Usuários novos começam como False por padrão, conforme definido no modelo
     session.add(new_user)
     session.commit()
-    # MUDANÇA AQUI: Adicionado "is_premium": new_user.is_premium
+    session.refresh(new_user)
     return {"status": "success", "message": "Registered.", "total_uses": 0, "is_premium": new_user.is_premium}
 
 # Endpoint: Classificar
@@ -146,7 +143,6 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     if dados.user_email:
         user_db = session.get(UserUsage, dados.user_email)
         # --- CHECK PREMIUM E QUOTA ---
-        # MUDANÇA AQUI: Aumentado para 30
         if user_db and (not user_db.is_premium) and user_db.total_evaluations >= 30:
             raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
@@ -165,14 +161,12 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
             top3_idxs = np.argsort(probs)[-3:][::-1]
             res = []
             for idx in top3_idxs:
-                # Obtém o código numérico do encoder
                 cod_numerico = encoders[coluna].inverse_transform([idx])[0]
                 
-                # --- CORREÇÃO AQUI: Converte int64 para string ---
+                # CORREÇÃO: Converte int64 para string (Necessário)
                 cod_str = str(cod_numerico)
                 
                 conf = float(probs[idx])
-                # Usa a string para buscar no dicionário
                 txt = dicionario_map.get(cod_str, cod_str)
                 res.append({"codigo": cod_str, "descricao": txt, "confianca": conf})
             return res
@@ -209,10 +203,8 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
         raise HTTPException(status_code=401, detail="User not found")
         
     # --- CHECK PREMIUM E QUOTA (BATCH) ---
-    # MUDANÇA AQUI: Aumentado para 30 e adicionado 'pass' com indentação
     if (not user_db.is_premium) and (user_db.total_evaluations + request.batch_size > 30):
-        # raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
-        pass # <-- Indentação corrigida (4 espaços)
+        raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED") # <-- Essa linha será executada se não for Premium E passar de 30
 
     user_db.batch_count += 1
     user_db.total_evaluations += request.batch_size
@@ -223,5 +215,3 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
 
 @app.get("/")
 def health(): return {"status": "ok"}
-
-
