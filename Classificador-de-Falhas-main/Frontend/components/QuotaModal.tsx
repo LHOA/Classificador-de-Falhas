@@ -1,13 +1,17 @@
+// src/components/QuotaModal.tsx (Versão Final Completa)
 import React, { useState } from 'react';
-import { X, Mail, User, Lock, CheckCircle, HeartHandshake } from 'lucide-react';
+// Importando Loader2 para o spinner
+import { X, Mail, User, Lock, CheckCircle, HeartHandshake, Loader2 } from 'lucide-react';
 
 interface QuotaModalProps {
   onRegister: (email: string, name: string) => void;
   onClose: () => void;
-  showContactMessage?: boolean; // Mantivemos a prop, mas não a usaremos no fluxo inicial
+  showContactMessage?: boolean;
+  // Nova prop para controlar o estado de loading do botão final
+  isRegistering?: boolean;
 }
 
-const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose }) => {
+const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, isRegistering = false }) => {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   
@@ -21,7 +25,7 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose }) => {
     return re.test(email);
   };
 
-  // Função chamada ao tentar enviar o formulário
+  // Função chamada ao tentar enviar o formulário (Etapa 1)
   const handlePreSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -38,13 +42,13 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose }) => {
         return;
     }
 
-    // 2. Se validou, avança para a tela de sucesso
+    // 2. Se validou, avança para a tela de sucesso (Etapa 2)
     setIsSuccessStep(true);
   };
 
-  // Função chamada ao clicar no botão final "Começar a Usar"
+  // Função chamada ao clicar no botão final "Começar a Usar" (Etapa 2)
   const handleFinalFinish = () => {
-      // Chama a função principal do App.tsx para liberar o acesso
+      // Chama a função principal do App.tsx que fará o registro no backend
       onRegister(email, name);
   };
 
@@ -56,7 +60,6 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose }) => {
         {!isSuccessStep && (
             <>
                 <div className="bg-indigo-600 p-6 text-white text-center relative">
-                  {/* Removemos o botão de fechar no registro inicial obrigatório */}
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
                     <Lock className="w-6 h-6" />
                   </div>
@@ -113,7 +116,7 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose }) => {
                     Acessar Plataforma
                   </button>
                   <p className="text-xs text-center text-slate-500 mt-4">
-                    Seus dados são usados apenas para controle de acesso anônimo e estatísticas de uso.
+                    Seus dados são usados apenas para controle de acesso e estatísticas de uso anônimas.
                   </p>
                 </form>
             </>
@@ -142,11 +145,21 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose }) => {
                     </p>
                 </div>
 
+                {/* Botão final com estado de Loading */}
                 <button
                     onClick={handleFinalFinish}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-2"
+                    // Desabilita o botão se estiver registrando no backend
+                    disabled={isRegistering}
+                    className={`w-full font-bold py-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-2
+                        ${isRegistering ? 'bg-slate-400 cursor-not-allowed text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
                 >
-                    Começar a Usar Agora
+                    {isRegistering ? (
+                        <>
+                            <Loader2 className="w-5 h-5 animate-spin" /> Processando Registro...
+                        </>
+                    ) : (
+                        "Começar a Usar Agora"
+                    )}
                 </button>
             </div>
         )}
