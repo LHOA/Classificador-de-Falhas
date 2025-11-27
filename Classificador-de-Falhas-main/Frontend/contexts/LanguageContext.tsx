@@ -49,9 +49,9 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       qm_welcome_disclaimer: "Seus dados são usados apenas para controle de acesso e estatísticas de uso anônimas.",
 
       // --- Quota Limit Reached ---
-      qm_limit_title: "Limite de Uso Gratuito Atingido",
+      qm_limit_title: "Limite de Uso Livre Atingido",
       // Usamos HTML para destacar o nome e permitir quebra de linha
-      qm_limit_text: "Você atingiu o limite inicial de análises gratuitas.<br/><br/>A plataforma é <strong>totalmente gratuita</strong>, mas para liberar o acesso ilimitado e termos um melhor controle da comunidade, por favor, entre em contato com o desenvolvedor:",
+      qm_limit_text: "Você atingiu o limite inicial de análises livres.<br/><br/>A plataforma é <strong>totalmente gratuita</strong>, mas para liberar o acesso ilimitado e termos um melhor controle da comunidade, por favor, entre em contato com o desenvolvedor:",
       qm_developer_name: "Luis Henrique Oliveira",
       qm_btn_contact_dev: "Contatar Desenvolvedor (LinkedIn)",
 
