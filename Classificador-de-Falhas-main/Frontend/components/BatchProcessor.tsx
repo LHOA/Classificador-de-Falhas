@@ -361,4 +361,28 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {processedData.map((
+                            {processedData.map((row, i) => (
+                                <tr key={i} className="hover:bg-indigo-50/30 transition-colors">
+                                    <td className="p-4 font-bold text-slate-700">{row.tag}</td>
+                                    <td className="p-4 text-slate-600 truncate max-w-xs" title={row.description}>{row.description}</td>
+                                    <td className="p-4 text-indigo-700 font-medium">{row.mode}</td>
+                                    <td className="p-4 text-emerald-700">{row.mechanism}</td>
+                                    <td className="p-4">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold 
+                                            ${row.confidence > 0.8 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {(row.confidence * 100).toFixed(0)}%
+                                        </span>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default BatchProcessor;
