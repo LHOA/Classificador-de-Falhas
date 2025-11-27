@@ -1,3 +1,4 @@
+// src/services/aiService.ts (Atualizado para retornar dados do registro)
 import { FalhaInput, RespostaAPI } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -7,6 +8,13 @@ interface UserCredentials {
     name: string | null;
 }
 
+// Interface para a resposta do registro
+interface RegisterResponse {
+    status: string;
+    message: string;
+    total_uses: number;
+}
+
 // Obtém credenciais salvas no localStorage
 export const getUserId = (): UserCredentials => {
     const email = localStorage.getItem('user_email');
@@ -14,28 +22,27 @@ export const getUserId = (): UserCredentials => {
     return { email, name };
 };
 
-// --- NOVA FUNÇÃO: REGISTRAR NO BACKEND ---
-export const registrarUsuarioNoBackend = async (email: string, name: string): Promise<void> => {
+// --- FUNÇÃO ATUALIZADA: Retorna os dados do backend ---
+export const registrarUsuarioNoBackend = async (email: string, name: string): Promise<RegisterResponse> => {
     try {
         const response = await fetch(`${API_URL}/register`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            // Envia os dados exatamente como o Pydantic do Python espera
             body: JSON.stringify({ email, name }),
         });
 
         if (!response.ok) {
-            // Se der erro (ex: banco fora do ar), lançamos uma exceção
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.detail || `Erro no registro: ${response.status}`);
         }
-        // Se deu tudo certo (200 OK), a função termina sem erros.
+
+        // Agora retornamos o JSON com o total_uses
+        return await response.json();
         
     } catch (error) {
         console.error("Erro ao registrar no backend:", error);
-        // Propaga o erro para ser tratado no frontend se necessário
         throw error;
     }
 };
