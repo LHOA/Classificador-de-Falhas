@@ -1,9 +1,8 @@
-// src/services/aiService.ts (Versão Completa e Corrigida)
+// src/services/aiService.ts (Versão Final Completa e Corrigida)
 import { FalhaInput, RespostaAPI } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// Interfaces
 export interface UserCredentials {
     email: string | null;
     name: string | null;
@@ -38,7 +37,6 @@ export const registrarUsuarioNoBackend = async (email: string, name: string): Pr
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.detail || `Erro no registro: ${response.status}`);
         }
-
         return await response.json();
     } catch (error) {
         console.error("Erro ao registrar no backend:", error);
@@ -49,7 +47,6 @@ export const registrarUsuarioNoBackend = async (email: string, name: string): Pr
 // --- 2. CLASSIFICAR FALHA (CHAMADA IA) ---
 export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> => {
     const credentials = getUserId();
-
     const bodyData = {
         ...dados,
         user_email: credentials.email,
@@ -85,17 +82,17 @@ export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
     
     const payload = {
         user_email: email || "anonimo",
-        tag: record.tag,
-        description: record.description,
-        impact: record.impactCode || record.impact,
-        mode_code: record.modeCode,
-        mode_desc: record.mode,
-        mech_code: record.mechanismCode,
-        mech_desc: record.mechanism,
-        det_code: record.detectionCode,
-        det_desc: record.detection,
-        confidence: record.confidence,
-        status: record.status
+        tag: String(record.tag || "N/A"),
+        description: String(record.description || ""),
+        impact: String(record.impactCode || record.impact || "X"),
+        mode_code: String(record.modeCode || ""),
+        mode_desc: String(record.mode || ""),
+        mech_code: String(record.mechanismCode || ""),
+        mech_desc: String(record.mechanism || ""),
+        det_code: String(record.detectionCode || ""),
+        det_desc: String(record.detection || ""),
+        confidence: Number(record.confidence || 0),
+        status: String(record.status || "IA")
     };
 
     try {
@@ -106,7 +103,8 @@ export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
         });
 
         if (!response.ok) {
-            throw new Error("Erro ao salvar no banco de dados.");
+            const err = await response.json();
+            throw new Error(err.detail || "Erro ao salvar no banco.");
         }
     } catch (error) {
         console.error("Erro ao salvar registro:", error);
@@ -117,25 +115,44 @@ export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
 // --- 4. SALVAR LOTE (Banco de Dados) ---
 export const salvarLoteNoBackend = async (records: any[]): Promise<void> => {
     const { email } = getUserId();
-    
     if (!email) throw new Error("Usuário não identificado.");
 
     const payload = records.map(record => ({
         user_email: email,
-        tag: record.tag,
-        description: record.description,
-        impact: record.impactCode || record.impact,
-        mode_code: record.modeCode,
-        mode_desc: record.mode,
-        mech_code: record.mechanismCode,
-        mech_desc: record.mechanism,
-        det_code: record.detectionCode,
-        det_desc: record.detection,
-        confidence: record.confidence,
-        status: record.status
+        tag: String(record.tag || "N/A"),
+        description: String(record.description || ""),
+        impact: String(record.impactCode || record.impact || "X"),
+        mode_code: String(record.modeCode || ""),
+        mode_desc: String(record.mode || ""),
+        mech_code: String(record.mechanismCode || ""),
+        mech_desc: String(record.mechanism || ""),
+        det_code: String(record.detectionCode || ""),
+        det_desc: String(record.detection || ""),
+        confidence: Number(record.confidence || 0),
+        status: String(record.status || "IA")
     }));
 
-    // --- NOVA FUNÇÃO: CARREGAR HISTÓRICO ---
+    try {
+        const response = await fetch(`${API_URL}/save-batch-records`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            const errorMsg = errorData?.detail 
+                ? (typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail))
+                : `Erro HTTP ${response.status}`;
+            throw new Error(errorMsg);
+        }
+    } catch (error: any) {
+        console.error("Erro no salvamento em lote:", error);
+        throw new Error(error.message || "Falha ao conectar com o servidor.");
+    }
+};
+
+// --- 5. CARREGAR HISTÓRICO (Novo) ---
 export const carregarHistoricoDoBackend = async (): Promise<any[]> => {
     const { email } = getUserId();
     if (!email) return [];
@@ -153,18 +170,16 @@ export const carregarHistoricoDoBackend = async (): Promise<any[]> => {
         const data = await response.json();
 
         // Mapeia do formato do Banco (Snake Case) para o formato da App (Camel Case)
-        // O App espera um objeto FailureRecord
         return data.map((item: any) => ({
             id: item.id.toString(),
             tag: item.tag,
             description: item.description,
-            impact: item.impact, // O banco pode ter salvo o código ou a descrição, ajustamos na exibição
+            impact: item.impact,
             impactCode: item.impact, 
             
             mode: item.mode_desc,
             modeCode: item.mode_code,
-            confidenceMode: 0, // O banco antigo não salvava confianças individuais separadas, apenas a geral?
-                               // Se o seu modelo FailureLog tem, mapeie aqui. Se não, use 0 ou a geral.
+            confidenceMode: 0, // Banco simplificado não salva confianças individuais
             
             mechanism: item.mech_desc,
             mechanismCode: item.mech_code,
@@ -176,27 +191,11 @@ export const carregarHistoricoDoBackend = async (): Promise<any[]> => {
 
             confidence: item.confidence,
             status: item.status,
-            timestamp: new Date(item.created_at) // Converte string ISO para Date
+            timestamp: new Date(item.created_at)
         }));
 
     } catch (error) {
         console.error("Erro ao carregar histórico:", error);
-        throw error;
-    }
-};
-
-    try {
-        const response = await fetch(`${API_URL}/save-batch-records`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            throw new Error("Erro ao salvar lote.");
-        }
-    } catch (error) {
-        console.error("Erro no salvamento em lote:", error);
         throw error;
     }
 };
