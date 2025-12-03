@@ -1,5 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { BarChart as IconBar, AlertTriangle, Lightbulb, Eye, Download } from 'lucide-react';
+import { 
+  BarChart as IconBar, AlertTriangle, Lightbulb, Eye, Download, 
+  ChevronDown, ChevronUp, ListFilter 
+} from 'lucide-react';
 import { FailureRecord } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
 import { 
@@ -13,20 +16,20 @@ interface DashboardProps {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 const IMPACT_COLORS = { 'D': '#ef4444', 'S': '#f97316', 'U': '#eab308', 'X': '#94a3b8' };
+const ITEMS_PER_PAGE = 8; // Número de itens iniciais
 
 const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   const { t, language } = useLanguage();
   const [showLegend, setShowLegend] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false); // Estado para controlar "Ver Tudo"
 
   const total = data.length;
   const critical = data.filter(r => r.impactCode === 'D').length;
 
-  // --- CÁLCULO DE MÉDIA DE CONFIANÇA ---
   const avgConfMode = total > 0 ? (data.reduce((acc, r) => acc + r.confidenceMode, 0) / total * 100).toFixed(1) : "0.0";
   const avgConfMech = total > 0 ? (data.reduce((acc, r) => acc + r.confidenceMech, 0) / total * 100).toFixed(1) : "0.0";
   const avgConfDet = total > 0 ? (data.reduce((acc, r) => acc + r.confidenceDet, 0) / total * 100).toFixed(1) : "0.0";
 
-  // Dados Gráficos (Memoizado)
   const impactData = useMemo(() => {
     const counts = { 'D': 0, 'S': 0, 'U': 0, 'X': 0 };
     data.forEach(r => { if(counts[r.impactCode as keyof typeof counts] !== undefined) counts[r.impactCode as keyof typeof counts]++ });
@@ -46,8 +49,11 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   const modeData = useMemo(() => getDistribution('mode'), [data]);
   const mechData = useMemo(() => getDistribution('mechanism'), [data]);
 
+  // Lógica de corte dos dados para a tabela
+  const displayedData = isExpanded ? data : data.slice(0, ITEMS_PER_PAGE);
+
   const ConfidenceCard = ({ title, value }: { title: string, value: string }) => (
-    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center">
+    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center hover:shadow-md transition-shadow">
       <span className="text-xs font-bold text-slate-400 uppercase mb-1">{title}</span>
       <div className="flex items-end gap-1">
         <span className={`text-2xl font-bold ${parseFloat(value) > 85 ? 'text-emerald-600' : 'text-amber-500'}`}>
@@ -58,34 +64,15 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
     </div>
   );
 
-  // --- FUNÇÃO DE DOWNLOAD CSV ---
   const downloadHistory = () => {
     if (data.length === 0) return;
-    
-    // Cabeçalhos do CSV
     const header = ["Date", "Tag", "Description", "Impact", "Mode", "Mechanism", "Detection", "Status", "Confidence"];
-    
-    // Linhas de dados
     const rows = data.map(r => [
       new Date(r.timestamp).toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US'),
-      r.tag,
-      `"${r.description.replace(/"/g, '""')}"`, // Escapar aspas na descrição
-      r.impactCode,
-      r.mode,
-      r.mechanism,
-      r.detection,
-      r.status,
-      (r.confidence * 100).toFixed(1) + '%'
+      r.tag, `"${r.description.replace(/"/g, '""')}"`, r.impactCode, r.mode, r.mechanism, r.detection, r.status, (r.confidence * 100).toFixed(1) + '%'
     ]);
-
-    // Junta tudo com ponto e vírgula (melhor para Excel em PT) ou vírgula
     const separator = ','; 
-    const csvContent = [
-      header.join(separator), 
-      ...rows.map(r => r.join(separator))
-    ].join('\n');
-
-    // Cria o Blob com BOM para UTF-8 (Ajuda o Excel a ler acentos)
+    const csvContent = [header.join(separator), ...rows.map(r => r.join(separator))].join('\n');
     const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -94,7 +81,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-10">
       
       {/* 1. KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -174,19 +161,20 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         </div>
       )}
 
-      {/* 3. TABELA RECENTE (ATUALIZADA) */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* 3. TABELA RECENTE (COM EXPANSÃO) */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
-          <h3 className="font-bold text-slate-800">{t('dash_recent')}</h3>
+          <div className="flex items-center gap-2">
+            <ListFilter className="w-5 h-5 text-indigo-600" />
+            <h3 className="font-bold text-slate-800">{t('dash_recent')}</h3>
+            <span className="text-xs font-medium text-slate-400 bg-slate-100 px-2 py-1 rounded-full">
+                {data.length} total
+            </span>
+          </div>
           
-          {/* BOTÃO DE DOWNLOAD NOVO */}
           {data.length > 0 && (
-            <button 
-              onClick={downloadHistory}
-              className="flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors"
-            >
-              <Download className="w-4 h-4" />
-              {t('btn_download')}
+            <button onClick={downloadHistory} className="flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors">
+              <Download className="w-4 h-4" /> {t('btn_download')}
             </button>
           )}
         </div>
@@ -204,34 +192,20 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {data.length === 0 ? (
-                <tr><td colSpan={6} className="p-8 text-center text-slate-400">No records found.</td></tr>
+              {displayedData.length === 0 ? (
+                <tr><td colSpan={6} className="p-12 text-center text-slate-400 italic">Nenhum registro encontrado.</td></tr>
               ) : (
-                data.slice(0, 15).map((record) => (
-                  <tr key={record.id} className="hover:bg-slate-50 transition-colors">
+                displayedData.map((record) => (
+                  <tr key={record.id} className="hover:bg-slate-50 transition-colors animate-in fade-in duration-300">
                     <td className="p-4 font-bold text-slate-900">{record.tag}</td>
-                    
-                    {/* Coluna Impacto (Badge Colorido) */}
                     <td className="p-4">
-                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${
-                        record.impactCode === 'D' ? 'bg-red-100 text-red-700' : 
-                        record.impactCode === 'S' ? 'bg-orange-100 text-orange-700' : 
-                        record.impactCode === 'U' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'
-                      }`}>
+                      <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${record.impactCode === 'D' ? 'bg-red-100 text-red-700' : record.impactCode === 'S' ? 'bg-orange-100 text-orange-700' : record.impactCode === 'U' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-100 text-slate-600'}`}>
                         {record.impactCode}
                       </span>
                     </td>
-
-                    {/* Coluna Descrição (Truncada) */}
-                    <td className="p-4">
-                      <div className="truncate max-w-[200px] text-slate-500" title={record.description}>
-                        {record.description}
-                      </div>
-                    </td>
-
+                    <td className="p-4"><div className="truncate max-w-[200px] text-slate-500" title={record.description}>{record.description}</div></td>
                     <td className="p-4 truncate max-w-[150px]" title={record.mode}>{record.mode}</td>
                     <td className="p-4 truncate max-w-[150px]">{record.mechanism}</td>
-                    
                     <td className="p-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-bold ${record.status === 'IA' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>
                         {record.status} ({ (record.confidence * 100).toFixed(0) }%)
@@ -243,6 +217,22 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
             </tbody>
           </table>
         </div>
+        
+        {/* BOTÃO DE EXPANDIR / RECOLHER */}
+        {data.length > ITEMS_PER_PAGE && (
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-center">
+                <button 
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors px-6 py-2 rounded-full hover:bg-white hover:shadow-sm"
+                >
+                    {isExpanded ? (
+                        <> {t('btn_view_less')} <ChevronUp className="w-4 h-4" /> </>
+                    ) : (
+                        <> {t('btn_view_all')} ({data.length - ITEMS_PER_PAGE} +) <ChevronDown className="w-4 h-4" /> </>
+                    )}
+                </button>
+            </div>
+        )}
       </div>
     </div>
   );
