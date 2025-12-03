@@ -176,7 +176,15 @@ const AppContent: React.FC = () => {
             )}
             
             {currentTab === TabView.BATCH && (
-              <BatchProcessor onBatchComplete={addBatchRecords} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isRegistered={userStatus === 'registered' || isPremiumUser} />
+              <BatchProcessor 
+                 onBatchComplete={addBatchRecords}
+                 onShowRegister={handleShowRegister}
+                 onShowLimitReached={handleShowLimitReached}
+                 // Mantemos isRegistered para controle de acesso básico
+                 isRegistered={userStatus === 'registered' || isPremiumUser}
+                 // --- CORREÇÃO AQUI: Passando a prop isPremium ---
+                 isPremium={isPremiumUser} 
+              />
             )}
             
             {currentTab === TabView.DICTIONARY && <Dictionary />}
