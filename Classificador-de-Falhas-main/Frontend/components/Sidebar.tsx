@@ -25,7 +25,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
   const { name } = getUserId();
   const userName = name || 'Visitante Anônimo';
   
-  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
+  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luishenriqueifma/";
 
   const handleTabChange = (tab: TabView) => {
       onTabChange(tab);
