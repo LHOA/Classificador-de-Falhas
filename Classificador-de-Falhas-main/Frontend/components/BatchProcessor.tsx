@@ -153,7 +153,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-8 text-white text-center">
             <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4"><FileSpreadsheet className="w-8 h-8 text-white" /></div>
             <h2 className="text-3xl font-bold mb-2">{t('nav_batch')}</h2>
-            <p className="text-indigo-100 max-w-xl mx-auto text-sm">Processe centenas de falhas em segundos.</p>
+            <p className="text-indigo-100 max-w-xl mx-auto text-sm">Processe centenas de falhas em segundos, utilizando nossa IA, obtendo resultados de Modos de Falhas, Mecanismos de Falhas e Métodos de Detecção, de Acordo com a Norma ISO 14224.</p>
         </div>
         <div className="p-8">
             {!file ? (
