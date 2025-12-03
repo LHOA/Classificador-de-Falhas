@@ -1,11 +1,12 @@
-// src/components/BatchProcessor.tsx (Versão Final com Premium Ilimitado)
+// src/components/BatchProcessor.tsx (Versão Final com Salvar Lote)
 import React, { useState, useRef } from 'react';
 import { 
   FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, 
-  Loader2, Lock, FileText, BarChart3, HardDriveUpload, AlertTriangle
+  Loader2, Lock, FileText, BarChart3, HardDriveUpload, AlertTriangle, CloudUpload
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { classificarFalha, getUserId } from '../services/aiService'; 
+// Importamos a nova função de salvar lote
+import { classificarFalha, getUserId, salvarLoteNoBackend } from '../services/aiService'; 
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 
@@ -16,7 +17,6 @@ interface BatchProcessorProps {
   onBatchComplete: (records: FailureRecord[]) => void;
   onShowRegister: () => void; 
   onShowLimitReached: () => void;
-  // Nova Prop necessária
   isPremium: boolean;
 }
 
@@ -32,6 +32,9 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ success: 0, fail: 0, skipped: 0 });
   
+  // Estado para controlar o salvamento no banco
+  const [isSaving, setIsSaving] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { email: userEmailOnLoad } = getUserId();
@@ -43,6 +46,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     return code;
   };
 
+  // --- MANIPULAÇÃO DE ARQUIVOS ---
   const handleDrag = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); if (e.type === "dragenter" || e.type === "dragover") setDragActive(true); else if (e.type === "dragleave") setDragActive(false); };
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files && e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); };
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files && e.target.files[0]) processFile(e.target.files[0]); };
@@ -71,100 +75,47 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   // --- PROCESSAMENTO ---
   const processBatch = async () => {
     if (previewData.length === 0) return;
-
     const { email: user_email, name: user_name } = getUserId();
-    if (!user_email) {
-        onShowRegister();
-        return;
-    }
+    if (!user_email) { onShowRegister(); return; }
 
-    setProcessing(true);
-    setProgress(0);
+    setProcessing(true); setProgress(0); setIsSaving(false);
     const results: FailureRecord[] = [];
-    let successCount = 0;
-    let failCount = 0;
-    let skippedCount = 0;
-    let hitBackendLimit = false;
+    let successCount = 0; let failCount = 0; let skippedCount = 0; let hitBackendLimit = false;
 
-    // 1. RESERVA DE QUOTA (Apenas se NÃO for premium)
     if (!isPremium) {
         try {
             const batchCheckResponse = await fetch(`${API_URL}/batch-process`, {
-                method: "POST",
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_email, batch_size: previewData.length }) 
+                method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_email, batch_size: previewData.length }) 
             });
-
-            if (batchCheckResponse.status === 403) {
-                onShowLimitReached(); 
-                setProcessing(false);
-                return;
-            }
+            if (batchCheckResponse.status === 403) { onShowLimitReached(); setProcessing(false); return; }
             if (!batchCheckResponse.ok) throw new Error("Erro ao reservar quota.");
-
-        } catch (err: any) {
-            setError(err.message || "Erro de API ao iniciar.");
-            setProcessing(false);
-            return;
-        }
+        } catch (err: any) { setError(err.message || "Erro de API ao iniciar."); setProcessing(false); return; }
     }
 
-    // 2. LOOP PRINCIPAL
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
       
-      // --- CORREÇÃO CRÍTICA: SÓ LIMITA SE NÃO FOR PREMIUM ---
       if (!isPremium && i >= FREE_BATCH_LIMIT) {
-          results.push({ 
-            id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact), 
-            modeCode: 'LIMIT', mode: t('qm_limit_title'), confidenceMode: 0, 
-            mechanismCode: 'LIMIT', mechanism: t('qm_btn_contact_dev'), confidenceMech: 0,
-            detectionCode: 'LIMIT', detection: t('qm_limit_text'), confidenceDet: 0, 
-            confidence: 0, status: 'IA', timestamp: new Date()
-        });
-        skippedCount++;
-        setProgress(Math.round(((i + 1) / previewData.length) * 100));
-        continue;
+          results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact), 
+            modeCode: 'LIMIT', mode: t('qm_limit_title'), confidenceMode: 0, mechanismCode: 'LIMIT', mechanism: t('qm_btn_contact_dev'), detectionCode: 'LIMIT', detection: t('qm_limit_text'), confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
+        skippedCount++; setProgress(Math.round(((i + 1) / previewData.length) * 100)); continue;
       }
 
       try {
-        const aiRes: RespostaAPI = await classificarFalha({
-          tag: row.tag, descricao: row.description, impacto: row.impact,
-          user_email: user_email, user_name: user_name
-        });
-        
-        const record: FailureRecord = {
-          id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact),
-          modeCode: aiRes.modo[0].codigo, mode: getLabel(MAP_MODE, aiRes.modo[0].codigo), confidenceMode: aiRes.modo[0].confianca,
-          mechanismCode: aiRes.mecanismo[0].codigo, mechanism: getLabel(MAP_MECH, aiRes.mecanismo[0].codigo), confidenceMech: aiRes.mecanismo[0].confianca,
-          detectionCode: aiRes.deteccao[0].codigo, detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo), confidenceDet: aiRes.deteccao[0].confianca,
-          confidence: aiRes.modo[0].confianca, status: 'IA', timestamp: new Date()
-        };
-        results.push(record);
-        successCount++;
-
+        const aiRes: RespostaAPI = await classificarFalha({ tag: row.tag, descricao: row.description, impacto: row.impact, user_email: user_email, user_name: user_name });
+        const record: FailureRecord = { id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact), modeCode: aiRes.modo[0].codigo, mode: getLabel(MAP_MODE, aiRes.modo[0].codigo), confidenceMode: aiRes.modo[0].confianca, mechanismCode: aiRes.mecanismo[0].codigo, mechanism: getLabel(MAP_MECH, aiRes.mecanismo[0].codigo), confidenceMech: aiRes.mecanismo[0].confianca, detectionCode: aiRes.deteccao[0].codigo, detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo), confidenceDet: aiRes.deteccao[0].confianca, confidence: aiRes.modo[0].confianca, status: 'IA', timestamp: new Date() };
+        results.push(record); successCount++;
       } catch (err: any) {
-        console.error(`Linha ${i} falhou:`, err);
-        if (err.message === "QUOTA_EXCEEDED") {
-           hitBackendLimit = true;
-           break; 
-        }
-        failCount++;
-        results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Erro', modeCode: 'ERR', mode: 'Erro API', confidenceMode: 0, mechanismCode: 'ERR', mechanism: 'Erro', confidenceMech: 0, detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
+        if (err.message === "QUOTA_EXCEEDED") { hitBackendLimit = true; break; }
+        failCount++; results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Erro', modeCode: 'ERR', mode: 'Erro API', confidenceMode: 0, mechanismCode: 'ERR', mechanism: 'Erro', confidenceMech: 0, detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
       }
-
       if (hitBackendLimit) break;
       setProgress(Math.round(((i + 1) / previewData.length) * 100));
     }
 
     setStats({ success: successCount, fail: failCount, skipped: skippedCount });
-    setProcessedData(results);
-    setProcessing(false);
-    onBatchComplete(results);
-
-    if (skippedCount > 0 || hitBackendLimit) {
-        onShowLimitReached();
-    }
+    setProcessedData(results); setProcessing(false); onBatchComplete(results);
+    if (skippedCount > 0 || hitBackendLimit) { onShowLimitReached(); }
   };
 
   const downloadResults = () => {
@@ -178,8 +129,28 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
       link.click();
   };
 
+  // --- NOVO: HANDLER PARA SALVAR NO BANCO ---
+  const handleBatchSave = async () => {
+      // Filtra apenas os sucessos (remove erros e limites)
+      const validRecords = processedData.filter(r => r.status === 'IA' && r.modeCode !== 'ERR' && r.modeCode !== 'LIMIT');
+      
+      if (validRecords.length === 0) return;
+
+      setIsSaving(true);
+      try {
+          await salvarLoteNoBackend(validRecords);
+          alert(`${validRecords.length} registros salvos com sucesso na base de conhecimento!`);
+          // Opcional: Atualizar dashboard local onBatchComplete(validRecords);
+      } catch (error) {
+          alert("Erro ao salvar no banco de dados.");
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
+      {/* ... Header (Mantido Igual) ... */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-8 text-white text-center">
             <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4"><FileSpreadsheet className="w-8 h-8 text-white" /></div>
@@ -200,12 +171,9 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                     <div className="flex items-center gap-4"><div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center"><FileSpreadsheet className="w-6 h-6" /></div><div><h4 className="font-bold text-slate-800">{file.name}</h4><p className="text-sm text-slate-500">{(file.size / 1024).toFixed(1)} KB • {previewData.length} linhas detectadas</p></div></div>
                     <div className="flex gap-3">
                         <button onClick={() => setFile(null)} className="px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">Trocar Arquivo</button>
-                        
                         {!processing && processedData.length === 0 && (
                             isEffectivelyRegistered ? (
-                                <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105">
-                                    <Play className="w-4 h-4" /> Iniciar Análise {isPremium ? '(Ilimitado)' : `(Máx ${FREE_BATCH_LIMIT})`}
-                                </button>
+                                <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105"><Play className="w-4 h-4" /> Iniciar Análise {isPremium ? '(Ilimitado)' : `(Máx ${FREE_BATCH_LIMIT})`}</button>
                             ) : (
                                 <button onClick={onShowRegister} className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><Lock className="w-4 h-4" /> Registro Necessário</button>
                             )
@@ -225,10 +193,25 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><BarChart3 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Total Processado</p><p className="text-2xl font-bold text-slate-800">{processedData.length}</p></div></div>
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Sucesso</p><p className="text-2xl font-bold text-slate-800">{stats.success}</p></div></div>
                 {stats.skipped > 0 && (<div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-amber-100 text-amber-600 rounded-lg"><AlertTriangle className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Limite Atingido</p><p className="text-2xl font-bold text-slate-800">{stats.skipped}</p></div></div>)}
-                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-5 rounded-xl shadow-lg text-white flex flex-col justify-center items-center cursor-pointer hover:scale-[1.02] transition-transform" onClick={downloadResults}><Download className="w-8 h-8 mb-2" /><span className="font-bold">Baixar Relatório CSV</span></div>
+                
+                {/* BOTÕES DE AÇÃO FINAIS */}
+                <div className="flex flex-col gap-2">
+                    <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-lg shadow-lg text-white flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] transition-transform" onClick={downloadResults}>
+                        <Download className="w-5 h-5" /><span className="font-bold text-sm">Baixar CSV</span>
+                    </div>
+                    <button 
+                        onClick={handleBatchSave} 
+                        disabled={isSaving}
+                        className={`p-3 rounded-lg shadow-lg text-white flex items-center justify-center gap-2 transition-transform ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.02]'}`}
+                    >
+                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin"/> : <CloudUpload className="w-5 h-5" />}
+                        <span className="font-bold text-sm">{isSaving ? 'Salvando...' : 'Salvar no Banco'}</span>
+                    </button>
+                </div>
             </div>
-            {/* ... Tabela de Resultados (Código já está correto no componente anterior) ... */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+
+            {/* ... (Tabela mantida igual) ... */}
+             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto max-h-[600px]">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10 shadow-sm">
