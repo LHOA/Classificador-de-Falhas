@@ -83,3 +83,40 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
     const resultado: RespostaAPI = await response.json();
     return resultado;
 };
+// --- NOVA FUNÇÃO: SALVAR REGISTRO DE FALHA ---
+export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
+    // Pega o email atual para garantir autoria
+    const { email } = getUserId();
+    
+    // Prepara o payload compatível com o modelo Python FailureLog
+    const payload = {
+        user_email: email || "anonimo",
+        tag: record.tag,
+        description: record.description,
+        impact: record.impact, // ou impactCode, dependendo do que você quer salvar
+        mode_code: record.modeCode,
+        mode_desc: record.mode,
+        mech_code: record.mechanismCode,
+        mech_desc: record.mechanism,
+        det_code: record.detectionCode,
+        det_desc: record.detection,
+        confidence: record.confidence,
+        status: record.status
+        // created_at é gerado pelo banco
+    };
+
+    try {
+        const response = await fetch(`${API_URL}/save-record`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            throw new Error("Erro ao salvar no banco de dados.");
+        }
+    } catch (error) {
+        console.error("Erro ao salvar registro:", error);
+        throw error; // Repassa o erro para o componente mostrar feedback
+    }
+};
