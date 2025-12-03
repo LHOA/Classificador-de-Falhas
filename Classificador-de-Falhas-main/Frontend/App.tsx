@@ -180,7 +180,12 @@ const AppContent: React.FC = () => {
               <h2 className="text-2xl font-bold text-slate-900 capitalize">{getTitle()}</h2>
             </div>
 
-            {currentTab === TabView.DASHBOARD && <Dashboard data={history} />}
+            {currentTab === TabView.DASHBOARD && (
+                <Dashboard 
+                    data={history} 
+                    onLoadHistory={handleLoadHistory} // <--- NOVA PROP
+                />
+            )}
             {currentTab === TabView.CLASSIFIER && (
               <Classifier onSave={addRecord} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isQuotaEnforced={isQuotaEnforced} />
             )}
