@@ -1,13 +1,14 @@
-// src/components/Classifier.tsx (Versão Compacta e Editável)
+// src/components/Classifier.tsx (Versão Final com Salvamento no Banco de Dados)
 import React, { useState } from 'react';
 import { BrainCircuit, Send, AlertTriangle, Sparkles, ArrowRight, Eraser, ExternalLink } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { classificarFalha } from '../services/aiService';
+// IMPORTANTE: Importar a função de salvar
+import { classificarFalha, salvarRegistroNoBackend } from '../services/aiService';
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 import ClassificationResult from './ClassificationResult';
 
-const LINKEDIN_URL = "https://www.linkedin.com/in/luishenriqueifma/";
+const LINKEDIN_URL = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
 
 interface ClassifierProps {
   onSave: (record: FailureRecord) => void;
@@ -24,9 +25,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
   const [impact, setImpact] = useState('X');
   
   const [loading, setLoading] = useState(false);
-  // 'result' guarda todos os dados que vieram da API (as listas de possibilidades)
   const [result, setResult] = useState<RespostaAPI | null>(null);
-  // 'selectedResults' guarda QUAL das opções o usuário escolheu (começa com a top 1)
   const [selectedResults, setSelectedResults] = useState<{mode: any, mech: any, det: any} | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +34,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     setDescription('');
     setImpact('X');
     setResult(null);
-    setSelectedResults(null); // Limpa a seleção
+    setSelectedResults(null);
     setError(null);
   };
 
@@ -51,7 +50,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     try {
       const data = await classificarFalha({ tag, descricao: description, impacto: impact });
       setResult(data);
-      // Inicializa a seleção com o primeiro resultado (top 1) de cada lista
+      // Inicializa a seleção com o Top 1
       setSelectedResults({
           mode: data.modo[0],
           mech: data.mecanismo[0],
@@ -80,36 +79,60 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
     return code;
   };
 
-  const handleSave = () => {
-    // Salva com base no que está SELECIONADO pelo usuário
+  // --- LÓGICA DE SALVAMENTO CONECTADA AO BANCO ---
+  const handleSave = async () => {
     if (!result || !selectedResults) return;
     
-    const newRecord: FailureRecord = {
-      id: Date.now().toString(),
-      tag,
-      description,
-      impactCode: impact,
-      impact: getLabel(MAP_IMPACTO, impact),
-      // Usa os dados da seleção atual
-      modeCode: selectedResults.mode.codigo,
-      mode: getLabel(MAP_MODE, selectedResults.mode.codigo),
-      confidenceMode: selectedResults.mode.confianca,
+    setLoading(true); // Bloqueia a tela enquanto salva
 
-      mechanismCode: selectedResults.mech.codigo,
-      mechanism: getLabel(MAP_MECH, selectedResults.mech.codigo),
-      confidenceMech: selectedResults.mech.confianca,
+    try {
+        // Verifica se o usuário mudou a sugestão da IA (Top 1)
+        const isHumanModified = 
+            selectedResults.mode.codigo !== result.modo[0].codigo ||
+            selectedResults.mech.codigo !== result.mecanismo[0].codigo ||
+            selectedResults.det.codigo !== result.deteccao[0].codigo;
 
-      detectionCode: selectedResults.det.codigo,
-      detection: getLabel(MAP_DET, selectedResults.det.codigo),
-      confidenceDet: selectedResults.det.confianca,
+        const newRecord: FailureRecord = {
+          id: Date.now().toString(),
+          tag,
+          description,
+          impactCode: impact,
+          impact: getLabel(MAP_IMPACTO, impact),
+          
+          // Usa a seleção atual do usuário
+          modeCode: selectedResults.mode.codigo,
+          mode: getLabel(MAP_MODE, selectedResults.mode.codigo),
+          confidenceMode: selectedResults.mode.confianca,
 
-      confidence: selectedResults.mode.confianca, // Mantemos a confiança do modo como principal
-      status: 'IA',
-      timestamp: new Date(),
-    };
-    
-    onSave(newRecord);
-    handleClear();
+          mechanismCode: selectedResults.mech.codigo,
+          mechanism: getLabel(MAP_MECH, selectedResults.mech.codigo),
+          confidenceMech: selectedResults.mech.confianca,
+
+          detectionCode: selectedResults.det.codigo,
+          detection: getLabel(MAP_DET, selectedResults.det.codigo),
+          confidenceDet: selectedResults.det.confianca,
+
+          confidence: selectedResults.mode.confianca,
+          status: isHumanModified ? 'Human' : 'IA', // Define se foi curadoria humana ou IA pura
+          timestamp: new Date(),
+        };
+        
+        // 1. Salva no Banco de Dados (PostgreSQL)
+        await salvarRegistroNoBackend(newRecord);
+
+        // 2. Atualiza o Dashboard localmente
+        onSave(newRecord);
+
+        // 3. Feedback e Limpeza
+        alert("Registro salvo com sucesso na base de conhecimento!");
+        handleClear();
+
+    } catch (error) {
+        console.error(error);
+        alert("Erro ao salvar registro. Tente novamente.");
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (
@@ -125,11 +148,9 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
         </p>
       </div>
 
-      {/* Reduzido gap-8 para gap-6 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         
         {/* --- Formulário de Entrada --- */}
-        {/* Reduzido padding de p-8 para p-6 */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-500" />
@@ -191,7 +212,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
               <label className="block text-xs font-bold text-slate-700 mb-1">
                 {t('field_description')} <span className="text-red-500">*</span>
               </label>
-              {/* Reduzido altura para h-32 */}
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -241,7 +261,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
         {/* --- Resultados --- */}
         <div className="relative lg:sticky lg:top-6 transition-all">
             {!result && !loading && (
-                // Reduzido min-h e paddings
                 <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 text-center h-full flex flex-col items-center justify-center text-slate-400 italic border-dashed min-h-[350px]">
                     <BrainCircuit className="w-12 h-12 mb-3 opacity-50" />
                     <p className="text-sm max-w-xs">{t('classifier_no_result')}</p>
@@ -250,7 +269,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
             )}
 
              {loading && (
-                // Reduzido min-h e paddings
                 <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center h-full flex flex-col items-center justify-center min-h-[350px] shadow-sm z-10 relative overflow-hidden">
                      <div className="absolute inset-0 bg-indigo-50/50 animate-pulse"></div>
                     <div className="relative z-10">
@@ -263,7 +281,6 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
 
             {result && !loading && selectedResults && (
                 <div className="animate-in slide-in-from-right duration-500 relative z-20">
-                   {/* Passamos o resultado completo e o estado da seleção atual */}
                    <ClassificationResult 
                       resultApi={result} 
                       selected={selectedResults}
