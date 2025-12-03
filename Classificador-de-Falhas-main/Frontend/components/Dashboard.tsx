@@ -1,7 +1,8 @@
+// src/components/Dashboard.tsx (Versão Final Completa)
 import React, { useMemo, useState } from 'react';
 import { 
-  BarChart as IconBar, AlertTriangle, Lightbulb, Eye, Download, 
-  ChevronDown, ChevronUp, ListFilter 
+  BarChart as IconBar, AlertTriangle, Eye, Download, 
+  ChevronDown, ChevronUp, ListFilter, History 
 } from 'lucide-react';
 import { FailureRecord } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -12,24 +13,29 @@ import {
 
 interface DashboardProps {
   data: FailureRecord[];
+  // Prop para carregar dados do banco
+  onLoadHistory: () => void; 
 }
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 const IMPACT_COLORS = { 'D': '#ef4444', 'S': '#f97316', 'U': '#eab308', 'X': '#94a3b8' };
-const ITEMS_PER_PAGE = 8; // Número de itens iniciais
+const ITEMS_PER_PAGE = 8; // Quantos itens mostram antes de expandir
 
-const Dashboard: React.FC<DashboardProps> = ({ data }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, onLoadHistory }) => {
   const { t, language } = useLanguage();
   const [showLegend, setShowLegend] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false); // Estado para controlar "Ver Tudo"
+  // Estado para controlar o "Ver Tudo" da tabela
+  const [isExpanded, setIsExpanded] = useState(false); 
 
   const total = data.length;
   const critical = data.filter(r => r.impactCode === 'D').length;
 
+  // Cálculo de Confianças Médias
   const avgConfMode = total > 0 ? (data.reduce((acc, r) => acc + r.confidenceMode, 0) / total * 100).toFixed(1) : "0.0";
   const avgConfMech = total > 0 ? (data.reduce((acc, r) => acc + r.confidenceMech, 0) / total * 100).toFixed(1) : "0.0";
   const avgConfDet = total > 0 ? (data.reduce((acc, r) => acc + r.confidenceDet, 0) / total * 100).toFixed(1) : "0.0";
 
+  // Preparação de Dados para Gráficos
   const impactData = useMemo(() => {
     const counts = { 'D': 0, 'S': 0, 'U': 0, 'X': 0 };
     data.forEach(r => { if(counts[r.impactCode as keyof typeof counts] !== undefined) counts[r.impactCode as keyof typeof counts]++ });
@@ -49,7 +55,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
   const modeData = useMemo(() => getDistribution('mode'), [data]);
   const mechData = useMemo(() => getDistribution('mechanism'), [data]);
 
-  // Lógica de corte dos dados para a tabela
+  // Define quais dados mostrar na tabela (Limitado ou Tudo)
   const displayedData = isExpanded ? data : data.slice(0, ITEMS_PER_PAGE);
 
   const ConfidenceCard = ({ title, value }: { title: string, value: string }) => (
@@ -72,8 +78,8 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
       r.tag, `"${r.description.replace(/"/g, '""')}"`, r.impactCode, r.mode, r.mechanism, r.detection, r.status, (r.confidence * 100).toFixed(1) + '%'
     ]);
     const separator = ','; 
-    const csvContent = [header.join(separator), ...rows.map(r => r.join(separator))].join('\n');
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const csvContent = ["\uFEFF" + header.join(separator), ...rows.map(r => r.join(separator))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     link.download = `FailureMap_History_${new Date().toISOString().slice(0,10)}.csv`;
@@ -161,9 +167,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
         </div>
       )}
 
-      {/* 3. TABELA RECENTE (COM EXPANSÃO) */}
+      {/* 3. TABELA RECENTE */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+          
           <div className="flex items-center gap-2">
             <ListFilter className="w-5 h-5 text-indigo-600" />
             <h3 className="font-bold text-slate-800">{t('dash_recent')}</h3>
@@ -172,11 +179,23 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
             </span>
           </div>
           
-          {data.length > 0 && (
-            <button onClick={downloadHistory} className="flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors">
-              <Download className="w-4 h-4" /> {t('btn_download')}
-            </button>
-          )}
+          <div className="flex gap-2">
+              {/* BOTÃO CARREGAR HISTÓRICO DO BANCO */}
+              <button 
+                onClick={onLoadHistory} 
+                className="flex items-center gap-2 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors"
+                title="Carregar análises salvas anteriormente do servidor"
+              >
+                <History className="w-4 h-4" /> Carregar Histórico
+              </button>
+
+              {/* BOTÃO DOWNLOAD CSV */}
+              {data.length > 0 && (
+                <button onClick={downloadHistory} className="flex items-center gap-2 text-sm font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-lg transition-colors">
+                  <Download className="w-4 h-4" /> {t('btn_download')}
+                </button>
+              )}
+          </div>
         </div>
         
         <div className="overflow-x-auto">
@@ -218,12 +237,12 @@ const Dashboard: React.FC<DashboardProps> = ({ data }) => {
           </table>
         </div>
         
-        {/* BOTÃO DE EXPANDIR / RECOLHER */}
+        {/* RODAPÉ DA TABELA: Botão Ver Mais / Ver Menos */}
         {data.length > ITEMS_PER_PAGE && (
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-center">
                 <button 
                     onClick={() => setIsExpanded(!isExpanded)}
-                    className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors px-6 py-2 rounded-full hover:bg-white hover:shadow-sm"
+                    className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors px-6 py-2 rounded-full hover:bg-white hover:shadow-sm border border-transparent hover:border-slate-200"
                 >
                     {isExpanded ? (
                         <> {t('btn_view_less')} <ChevronUp className="w-4 h-4" /> </>
