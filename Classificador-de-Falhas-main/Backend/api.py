@@ -32,18 +32,19 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-# --- MODELO DE USO (ATUALIZADO COM PREMIUM) ---
+# --- MODELO DE USO ---
 class UserUsage(SQLModel, table=True):
     email: str = Field(primary_key=True)
     name: str
     individual_count: int = Field(default=0)
     batch_count: int = Field(default=0)
     total_evaluations: int = Field(default=0)
+    # O campo mágico: se for True, ignora limites
     is_premium: bool = Field(default=False)
     registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     last_use_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
-# --- 2. FUNÇÕES DE TEXTO E CARREGAMENTO ---
+# --- 2. FUNÇÕES ML E CARREGAMENTO ---
 try:
     nltk.data.find('corpora/stopwords')
     stop_words = set(stopwords.words('portuguese'))
@@ -59,7 +60,6 @@ def limpar_texto(texto):
     texto = ' '.join([palavra for palavra in texto.split() if palavra not in stop_words])
     return texto
 
-# Carregamento
 modelos = None
 encoders = None
 try:
@@ -69,7 +69,7 @@ try:
 except Exception as e:
     print(f"ERRO CRÍTICO AO CARREGAR MODELO: {e}", file=sys.stderr)
 
-# Dicionários
+# Dicionários (Mapeamento)
 map_mech = {
     '1.0': 'General (Geral)', '1.1': 'Leakage (Vazamento)', '1.2': 'Vibration (Vibração)', '1.3': 'Clearance/alignment failure (Falha de folga/alinhamento)', '1.4': 'Deformation (Deformação)', '1.5': 'Looseness (Afrouxamento)', '1.6': 'Sticking (Emperramento/Travamento)', '1.7': 'Insulation damage (Dano no isolamento térmico/acústico)', '1.8': 'Degraded/insufficient support (Suporte degradado/insuficiente)', '1.9': 'Coating damage (Dano no revestimento/pintura)', '1.10': 'Damage to outer sheath (Dano na capa externa)', '1.11': 'Liquid filled annulus (Anular preenchido com líquido)', '1.12': 'Carcass collapse (Colapso da carcaça)', '1.13': 'Pullout of liner (Arrancamento do liner/camada interna)', '1.14': 'Defective flameproof joint, mechanical (Junta à prova de explosão defeituosa - mecânica)', '1.15': 'Defective enclosure/ IP (Invólucro defeituoso / Grau IP)', '2.0': 'General (Geral)', '2.1': 'Cavitation (Cavitação)', '2.2': 'Corrosion internal (Corrosão interna)', '2.3': 'Erosion (Erosão)', '2.4': 'Wear (Desgaste)', '2.5': 'Breakage (Quebra/Ruptura)', '2.6': 'Fatigue (Fadiga)', '2.7': 'Overheating (Superaquecimento)', '2.8': 'Burst (Estouro/Ruptura por pressão)', '2.9': 'Corrosion external (Corrosão externa)', '2.10': 'Crack (Trinca)', '2.11': 'Damage to flange (Dano no flange)', '2.12': 'Degraded bolting (Parafusos/Estojos degradados)', '2.13': 'Insufficient cathodic protection (Proteção catódica insuficiente)', '2.14': 'Chloride penetration (Penetração de cloretos)', '2.15': 'Damaged concrete (Concreto danificado)', '2.16': 'Defective flameproof joint, corrosion (Junta à prova de explosão defeituosa - corrosão)', '2.17': 'Natural Degradation (Degradação natural)', '2.20': 'Corrosion under insulation (Corrosão sob isolamento - CUI)', '2.21': 'Corrosion insulated bolts (Corrosão em parafusos isolados)', '3.0': 'General (Geral)', '3.1': 'Control failure (Falha de controle)', '3.2': 'No signal/indication/alarm (Sem sinal/indicação/alarme)', '3.3': 'Faulty signal/indication/alarm (Sinal/indicação/alarme defeituoso)', '3.4': 'Out of adjustment (Desajustado)', '3.5': 'Software failure (Falha de software)', '3.6': 'Common cause/mode failure (Falha de causa comum/modo comum)', '4.0': 'General (Geral)', '4.1': 'Short circuiting (Curto-circuito)', '4.2': 'Open circuit (Circuito aberto)', '4.3': 'No power/voltage (Sem energia/tensão)', '4.4': 'Faulty power/voltage (Energia/tensão defeituosa)', '4.5': 'Earth/isolation fault (Falha de terra/isolamento)', '4.6': 'Defective electrical connection (Conexão elétrica defeituosa)', '5.0': 'General (Geral)', '5.1': 'Blockage/plugged (Bloqueio/Entupimento)', '5.2': 'Contamination (Contaminação)', '5.3': 'Miscellaneous external influences (Influências externas diversas)', '5.4': 'Marine fouling (Incrustação marinha)', '5.5': 'Seabed erosion (Erosão do leito marinho)', '5.6': 'Free span (Vão livre)', '5.7': 'Detrimental contact (Contato prejudicial)', '5.8': 'Incorrect configuration (Configuração incorreta)', '5.9': 'Operation outside pressure and temp (Operação fora de pressão e temperatura)', '6.0': 'General (Geral)', '6.1': 'No cause found (Nenhuma causa encontrada)', '6.2': 'Combined causes (Causas combinadas)', '6.3': 'Other (Outro)', '6.4': 'Unknown (Desconhecido)', '6.5': 'Deviation from design (Desvio de projeto)'
 }
@@ -120,20 +120,21 @@ class UserRegistration(BaseModel):
 
 class BatchProcessRequest(BaseModel):
     user_email: Optional[str] = None
-    batch_size: int = 10
+    batch_size: int = 10 
 
 # Endpoint: Registro
 @app.post("/register", tags=["Quota"])
 def register_user(user: UserRegistration, session: Session = Depends(get_session)):
     user_db = session.get(UserUsage, user.email)
     if user_db:
+        # Retorna is_premium para o frontend saber
         return {"status": "success", "message": "User registered.", "total_uses": user_db.total_evaluations, "is_premium": user_db.is_premium}
     
     new_user = UserUsage(email=user.email, name=user.name)
     session.add(new_user)
     session.commit()
-    session.refresh(new_user)
-    return {"status": "success", "message": "Registered.", "total_uses": 0, "is_premium": new_user.is_premium}
+    # Novos usuários não são premium por padrão (False)
+    return {"status": "success", "message": "Registered.", "total_uses": 0, "is_premium": False}
 
 # Endpoint: Classificar
 @app.post("/classificar", response_model=RespostaAPI)
@@ -142,7 +143,11 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     user_db = None
     if dados.user_email:
         user_db = session.get(UserUsage, dados.user_email)
+        
         # --- CHECK PREMIUM E QUOTA ---
+        # A Lógica de Ouro: Se user_db.is_premium for True, o 'not' vira False.
+        # O Python para de avaliar o resto da linha (short-circuit).
+        # O erro 403 SÓ acontece se: (Não é Premium) E (Estourou o Limite de 30)
         if user_db and (not user_db.is_premium) and user_db.total_evaluations >= 30:
             raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
@@ -155,22 +160,18 @@ def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_sessio
     df_input['TEXTO_LIMPO'] = limpar_texto(dados.descricao)
 
     try:
-        # --- FUNÇÃO PREVER_TOP3 CORRIGIDA ---
         def prever_top3(coluna, dicionario_map):
             probs = modelos[coluna].predict_proba(df_input)[0]
             top3_idxs = np.argsort(probs)[-3:][::-1]
             res = []
             for idx in top3_idxs:
-                cod_numerico = encoders[coluna].inverse_transform([idx])[0]
-                
-                # CORREÇÃO: Converte int64 para string (Necessário)
-                cod_str = str(cod_numerico)
-                
+                cod = encoders[coluna].inverse_transform([idx])[0]
+                # Conversão segura para string
+                cod_str = str(cod)
                 conf = float(probs[idx])
                 txt = dicionario_map.get(cod_str, cod_str)
                 res.append({"codigo": cod_str, "descricao": txt, "confianca": conf})
             return res
-        # ------------------------------------
 
         res_mode = prever_top3('FailMode', map_mode)
         res_det = prever_top3('DetMethod', map_det)
@@ -203,8 +204,9 @@ def process_batch_check(request: BatchProcessRequest, session: Session = Depends
         raise HTTPException(status_code=401, detail="User not found")
         
     # --- CHECK PREMIUM E QUOTA (BATCH) ---
+    # Mesma lógica: Se for Premium, ignora o limite de 30.
     if (not user_db.is_premium) and (user_db.total_evaluations + request.batch_size > 30):
-        raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED") # <-- Essa linha será executada se não for Premium E passar de 30
+        raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
     user_db.batch_count += 1
     user_db.total_evaluations += request.batch_size
