@@ -1,6 +1,6 @@
-// src/components/Sidebar.tsx (Versão Final com Botão de Fechar Funcional)
+// src/components/Sidebar.tsx
 import React from 'react';
-// Adicionado X (close icon) na lista de imports
+// --- CORREÇÃO AQUI: Adicionado 'X' na lista de imports ---
 import { LayoutDashboard, BrainCircuit, Database, Layers, UserCircle2, Crown, Globe, ExternalLink, X } from 'lucide-react';
 import { TabView } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -10,7 +10,6 @@ interface SidebarProps {
   currentTab: TabView;
   onTabChange: (tab: TabView) => void;
   isPremium: boolean;
-  // Handler para fechar a sidebar em mobile
   onCloseMobile: () => void;
 }
 
@@ -26,21 +25,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
   const { name } = getUserId();
   const userName = name || 'Visitante Anônimo';
   
-  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luishenriqueifma/";
+  const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
 
   const handleTabChange = (tab: TabView) => {
       onTabChange(tab);
-      onCloseMobile(); // Fecha a sidebar ao clicar em um item no mobile
+      onCloseMobile();
   };
 
   return (
-    // Removido o translate-x-full daqui, o App.tsx controla a transição
     <div className="w-full max-w-[280px] md:max-w-none md:w-64 bg-slate-900 text-white flex flex-col h-full">
       
-      {/* 1. SEÇÃO DE TÍTULO E PERFIL DO USUÁRIO LOGADO */}
+      {/* 1. Header */}
       <div className="p-6 pb-4 flex flex-col gap-3 border-b border-slate-800/50 bg-slate-900/50">
         
-        {/* Título da Aplicação */}
         <div className="flex items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
                 <BrainCircuit className="w-6 h-6 text-indigo-400" />
@@ -48,13 +45,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
                   {t('app_title')}
                 </h1>
             </div>
-            {/* Botão de Fechar (Apenas para Mobile) - AGORA COM O X IMPORTADO */}
-            <button onClick={onCloseMobile} className="md:hidden text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
+            
+            {/* Botão de Fechar (Mobile) - Usa o componente X importado */}
+            <button 
+                onClick={onCloseMobile} 
+                className="md:hidden p-1 text-slate-400 hover:text-white transition-colors rounded-lg hover:bg-slate-800"
+            >
+                <X className="w-6 h-6" />
             </button>
         </div>
         
-        {/* Perfil (Nome do Usuário) */}
+        {/* Perfil */}
         <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-xl">
             <div className="relative">
                 <UserCircle2 className="w-8 h-8 text-slate-400" />
@@ -77,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
             </div>
         </div>
 
-        {/* Controles de Idioma (FULL WIDTH) */}
+        {/* Idioma */}
         <div className="flex gap-2 text-xs">
             <button onClick={() => setLanguage(language === 'pt' ? 'en' : 'pt')} 
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-700 hover:bg-slate-800 transition-colors text-slate-300 font-bold">
@@ -86,7 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
         </div>
       </div>
 
-      {/* 2. SEÇÃO DE NAVEGAÇÃO */}
+      {/* 2. Navegação */}
       <nav className="flex-1 p-4 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
         {navItems(t).map((item) => {
           const Icon = item.icon;
@@ -108,18 +109,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
         })}
       </nav>
 
-      {/* 3. RODAPÉ (PERFIL DO DESENVOLVEDOR - MANTIDO EM DESTAQUE) */}
+      {/* 3. Rodapé */}
       <div className="p-4 border-t border-slate-800/50 bg-slate-800/70">
-        
         <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">{t('sidebar_developed_by')}</h4>
-        
         <div className="flex items-center justify-between gap-3 p-3 bg-slate-900 rounded-xl border border-indigo-700/50 shadow-lg">
-            
             <div className="overflow-hidden">
                 <p className="text-sm font-bold text-white truncate">{t('qm_developer_name')}</p>
                 <p className="text-xs text-indigo-400 mt-0.5">{t('qm_developer_role_specific')}</p>
             </div>
-            
             <a 
                 href={DEVELOPER_LINKEDIN} 
                 target="_blank" 
