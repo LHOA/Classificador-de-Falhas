@@ -1,11 +1,11 @@
-// src/components/BatchProcessor.tsx (Versão Final com Salvar Lote)
+// src/components/BatchProcessor.tsx (Versão Final com Botão Salvar REINSERIDO)
 import React, { useState, useRef } from 'react';
 import { 
   FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, 
   Loader2, Lock, FileText, BarChart3, HardDriveUpload, AlertTriangle, CloudUpload
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-// Importamos a nova função de salvar lote
+// Importamos a função de salvar lote
 import { classificarFalha, getUserId, salvarLoteNoBackend } from '../services/aiService'; 
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
@@ -31,8 +31,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [processedData, setProcessedData] = useState<FailureRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ success: 0, fail: 0, skipped: 0 });
-  
-  // Estado para controlar o salvamento no banco
+  // Estado para o loading do botão salvar
   const [isSaving, setIsSaving] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -129,20 +128,17 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
       link.click();
   };
 
-  // --- NOVO: HANDLER PARA SALVAR NO BANCO ---
+  // --- FUNÇÃO DE SALVAR LOTE (REINSERIDA) ---
   const handleBatchSave = async () => {
-      // Filtra apenas os sucessos (remove erros e limites)
       const validRecords = processedData.filter(r => r.status === 'IA' && r.modeCode !== 'ERR' && r.modeCode !== 'LIMIT');
-      
       if (validRecords.length === 0) return;
 
       setIsSaving(true);
       try {
           await salvarLoteNoBackend(validRecords);
           alert(`${validRecords.length} registros salvos com sucesso na base de conhecimento!`);
-          // Opcional: Atualizar dashboard local onBatchComplete(validRecords);
-      } catch (error) {
-          alert("Erro ao salvar no banco de dados.");
+      } catch (error: any) {
+          alert(`Erro ao salvar: ${error.message}`);
       } finally {
           setIsSaving(false);
       }
@@ -150,7 +146,8 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      {/* ... Header (Mantido Igual) ... */}
+      
+      {/* HEADER & UPLOAD SECTION */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-8 text-white text-center">
             <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4"><FileSpreadsheet className="w-8 h-8 text-white" /></div>
@@ -187,6 +184,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
       {processing && <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-pulse"><div className="flex justify-between items-end mb-2"><div><h3 className="font-bold text-slate-800 flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin text-indigo-600" /> Processando IA...</h3><p className="text-sm text-slate-500">Isso pode levar alguns segundos.</p></div><span className="text-2xl font-bold text-indigo-600">{progress}%</span></div><div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden"><div className="bg-indigo-600 h-full transition-all duration-300 ease-out rounded-full" style={{ width: `${progress}%` }}></div></div></div>}
       
+      {/* RESULTS SECTION */}
       {processedData.length > 0 && (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -194,11 +192,12 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Sucesso</p><p className="text-2xl font-bold text-slate-800">{stats.success}</p></div></div>
                 {stats.skipped > 0 && (<div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-amber-100 text-amber-600 rounded-lg"><AlertTriangle className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Limite Atingido</p><p className="text-2xl font-bold text-slate-800">{stats.skipped}</p></div></div>)}
                 
-                {/* BOTÕES DE AÇÃO FINAIS */}
+                {/* BOTÕES DE AÇÃO FINAIS (Download + Salvar) */}
                 <div className="flex flex-col gap-2">
                     <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-lg shadow-lg text-white flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] transition-transform" onClick={downloadResults}>
                         <Download className="w-5 h-5" /><span className="font-bold text-sm">Baixar CSV</span>
                     </div>
+                    {/* BOTÃO DE SALVAR NO BANCO REINSERIDO */}
                     <button 
                         onClick={handleBatchSave} 
                         disabled={isSaving}
@@ -210,8 +209,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                 </div>
             </div>
 
-            {/* ... (Tabela mantida igual) ... */}
-             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto max-h-[600px]">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10 shadow-sm">
