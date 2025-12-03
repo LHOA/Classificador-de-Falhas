@@ -26,6 +26,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       qm_developer_name: 'Luis Henrique Oliveira',
       qm_developer_role_specific: 'Engenheiro de Manutenção e Confiabilidade',
 
+      // ...
+      btn_view_all: "Ver Todos os Registros",
+      btn_view_less: "Ver Menos",
+      
       // Dashboard
       dash_total: 'Total de Registros',
       dash_critical: 'Falhas Críticas',
@@ -119,6 +123,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
       dash_legend_toggle: 'Show Legend',
       dash_recent: 'Recent Analysis',
       btn_download: 'Download History (CSV)',
+
+      // ...
+      btn_view_all: "View All Records",
+      btn_view_less: "View Less",
 
       // --- Quota Modal (New) ---
       qm_welcome_title: "Welcome to Failure Map",
