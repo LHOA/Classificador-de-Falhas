@@ -135,6 +135,56 @@ export const salvarLoteNoBackend = async (records: any[]): Promise<void> => {
         status: record.status
     }));
 
+    // --- NOVA FUNÇÃO: CARREGAR HISTÓRICO ---
+export const carregarHistoricoDoBackend = async (): Promise<any[]> => {
+    const { email } = getUserId();
+    if (!email) return [];
+
+    try {
+        const response = await fetch(`${API_URL}/history/${email}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+            throw new Error("Erro ao buscar histórico.");
+        }
+
+        const data = await response.json();
+
+        // Mapeia do formato do Banco (Snake Case) para o formato da App (Camel Case)
+        // O App espera um objeto FailureRecord
+        return data.map((item: any) => ({
+            id: item.id.toString(),
+            tag: item.tag,
+            description: item.description,
+            impact: item.impact, // O banco pode ter salvo o código ou a descrição, ajustamos na exibição
+            impactCode: item.impact, 
+            
+            mode: item.mode_desc,
+            modeCode: item.mode_code,
+            confidenceMode: 0, // O banco antigo não salvava confianças individuais separadas, apenas a geral?
+                               // Se o seu modelo FailureLog tem, mapeie aqui. Se não, use 0 ou a geral.
+            
+            mechanism: item.mech_desc,
+            mechanismCode: item.mech_code,
+            confidenceMech: 0,
+
+            detection: item.det_desc,
+            detectionCode: item.det_code,
+            confidenceDet: 0,
+
+            confidence: item.confidence,
+            status: item.status,
+            timestamp: new Date(item.created_at) // Converte string ISO para Date
+        }));
+
+    } catch (error) {
+        console.error("Erro ao carregar histórico:", error);
+        throw error;
+    }
+};
+
     try {
         const response = await fetch(`${API_URL}/save-batch-records`, {
             method: "POST",
