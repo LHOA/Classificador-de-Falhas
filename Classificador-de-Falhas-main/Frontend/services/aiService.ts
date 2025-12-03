@@ -104,6 +104,43 @@ export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
         status: record.status
         // created_at é gerado pelo banco
     };
+    // --- NOVA FUNÇÃO: SALVAR LOTE ---
+export const salvarLoteNoBackend = async (records: any[]): Promise<void> => {
+    const { email } = getUserId();
+    
+    if (!email) throw new Error("Usuário não identificado.");
+
+    // Mapeia o array do Frontend para o formato do Banco de Dados
+    const payload = records.map(record => ({
+        user_email: email,
+        tag: record.tag,
+        description: record.description,
+        impact: record.impactCode || record.impact, // Garante que pega o código (D, S, U)
+        mode_code: record.modeCode,
+        mode_desc: record.mode,
+        mech_code: record.mechanismCode,
+        mech_desc: record.mechanism,
+        det_code: record.detectionCode,
+        det_desc: record.detection,
+        confidence: record.confidence,
+        status: record.status
+    }));
+
+    try {
+        const response = await fetch(`${API_URL}/save-batch-records`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            throw new Error("Erro ao salvar lote.");
+        }
+    } catch (error) {
+        console.error("Erro no salvamento em lote:", error);
+        throw error;
+    }
+};
 
     try {
         const response = await fetch(`${API_URL}/save-record`, {
