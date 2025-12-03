@@ -1,11 +1,9 @@
-// src/components/BatchProcessor.tsx (Versão Final com Botão Salvar REINSERIDO)
 import React, { useState, useRef } from 'react';
 import { 
   FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, 
-  Loader2, Lock, FileText, BarChart3, HardDriveUpload, AlertTriangle, CloudUpload
+  Loader2, Lock, FileText, BarChart3, HardDriveUpload, AlertTriangle, CloudUpload, LayoutDashboard
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-// Importamos a função de salvar lote
 import { classificarFalha, getUserId, salvarLoteNoBackend } from '../services/aiService'; 
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
@@ -18,9 +16,11 @@ interface BatchProcessorProps {
   onShowRegister: () => void; 
   onShowLimitReached: () => void;
   isPremium: boolean;
+  // Nova prop para navegação
+  onGoToDashboard: () => void;
 }
 
-const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached, isPremium }) => {
+const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached, isPremium, onGoToDashboard }) => {
   const { t, language } = useLanguage();
   
   const [dragActive, setDragActive] = useState(false);
@@ -31,7 +31,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [processedData, setProcessedData] = useState<FailureRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ success: 0, fail: 0, skipped: 0 });
-  // Estado para o loading do botão salvar
   const [isSaving, setIsSaving] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -45,7 +44,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     return code;
   };
 
-  // --- MANIPULAÇÃO DE ARQUIVOS ---
   const handleDrag = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); if (e.type === "dragenter" || e.type === "dragover") setDragActive(true); else if (e.type === "dragleave") setDragActive(false); };
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files && e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); };
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files && e.target.files[0]) processFile(e.target.files[0]); };
@@ -71,7 +69,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     reader.readAsText(uploadedFile);
   };
 
-  // --- PROCESSAMENTO ---
   const processBatch = async () => {
     if (previewData.length === 0) return;
     const { email: user_email, name: user_name } = getUserId();
@@ -113,7 +110,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     }
 
     setStats({ success: successCount, fail: failCount, skipped: skippedCount });
-    setProcessedData(results); setProcessing(false); onBatchComplete(results);
+    setProcessedData(results); setProcessing(false); onBatchComplete(results); // Atualiza o histórico global, mas não muda a aba
     if (skippedCount > 0 || hitBackendLimit) { onShowLimitReached(); }
   };
 
@@ -128,83 +125,85 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
       link.click();
   };
 
-  // --- FUNÇÃO DE SALVAR LOTE (REINSERIDA) ---
-  const handleBatchSave = async () => {
+  // --- FUNÇÃO HÍBRIDA: Salvar e Navegar ---
+  const handleSaveAndRedirect = async () => {
       const validRecords = processedData.filter(r => r.status === 'IA' && r.modeCode !== 'ERR' && r.modeCode !== 'LIMIT');
-      if (validRecords.length === 0) return;
+      if (validRecords.length === 0) {
+          onGoToDashboard(); // Se não tem nada pra salvar, só vai
+          return;
+      }
 
       setIsSaving(true);
       try {
           await salvarLoteNoBackend(validRecords);
-          alert(`${validRecords.length} registros salvos com sucesso na base de conhecimento!`);
+          alert(`Sucesso! ${validRecords.length} registros foram salvos e consolidados.`);
+          onGoToDashboard(); // <--- REDIRECIONAMENTO AQUI
       } catch (error: any) {
-          alert(`Erro ao salvar: ${error.message}`);
+          alert(`Erro ao salvar: ${error.message}. Os dados locais foram mantidos.`);
+          // Não redireciona se der erro, para o usuário não perder os dados da tela
       } finally {
           setIsSaving(false);
       }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500">
-      
-      {/* HEADER & UPLOAD SECTION */}
+    <div className="max-w-6xl mx-auto space-y-8 animate-in fade-in duration-500 pb-20">
+      {/* ... Header e Upload (Igual) ... */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 p-8 text-white text-center">
             <div className="mx-auto w-16 h-16 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-4"><FileSpreadsheet className="w-8 h-8 text-white" /></div>
             <h2 className="text-3xl font-bold mb-2">{t('nav_batch')}</h2>
-            <p className="text-indigo-100 max-w-xl mx-auto text-sm">Processe centenas de falhas em segundos. A IA classifica automaticamente Modos, Mecanismos e Métodos de Detecção.</p>
+            <p className="text-indigo-100 max-w-xl mx-auto text-sm">Processe centenas de falhas em segundos.</p>
         </div>
         <div className="p-8">
             {!file ? (
-                <div className={`relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer ${dragActive ? 'border-indigo-500 bg-indigo-50 scale-[1.02]' : 'border-slate-300 hover:border-indigo-400 hover:bg-slate-50'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}>
+                <div className={`relative border-2 border-dashed rounded-xl p-12 text-center cursor-pointer ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-slate-300 hover:border-indigo-400'}`} onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}>
                     <input type="file" accept=".csv,.txt" className="hidden" ref={fileInputRef} onChange={handleFileInput} />
-                    <HardDriveUpload className={`w-16 h-16 mx-auto mb-4 ${dragActive ? 'text-indigo-600' : 'text-slate-300'}`} />
-                    <p className="text-lg font-medium text-slate-700">Arraste seu arquivo CSV aqui</p>
-                    <p className="text-sm text-slate-400 mt-2">ou clique para selecionar do computador</p>
-                    <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 text-xs rounded-full font-mono"><FileText className="w-3 h-3" /> Tag, Description, FailureImp</div>
+                    <HardDriveUpload className={`w-16 h-16 mx-auto mb-4 text-slate-300`} />
+                    <p className="text-lg font-medium text-slate-700">Arraste seu CSV aqui</p>
                 </div>
             ) : (
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-4"><div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center"><FileSpreadsheet className="w-6 h-6" /></div><div><h4 className="font-bold text-slate-800">{file.name}</h4><p className="text-sm text-slate-500">{(file.size / 1024).toFixed(1)} KB • {previewData.length} linhas detectadas</p></div></div>
+                    <div className="flex items-center gap-4"><div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center"><FileSpreadsheet className="w-6 h-6" /></div><div><h4 className="font-bold text-slate-800">{file.name}</h4><p className="text-sm text-slate-500">{(file.size / 1024).toFixed(1)} KB • {previewData.length} linhas</p></div></div>
                     <div className="flex gap-3">
-                        <button onClick={() => setFile(null)} className="px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">Trocar Arquivo</button>
+                        <button onClick={() => setFile(null)} className="px-4 py-2 text-slate-500 hover:text-red-600 rounded-lg transition-colors font-medium">Trocar</button>
                         {!processing && processedData.length === 0 && (
                             isEffectivelyRegistered ? (
-                                <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105"><Play className="w-4 h-4" /> Iniciar Análise {isPremium ? '(Ilimitado)' : `(Máx ${FREE_BATCH_LIMIT})`}</button>
+                                <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><Play className="w-4 h-4" /> Iniciar</button>
                             ) : (
-                                <button onClick={onShowRegister} className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><Lock className="w-4 h-4" /> Registro Necessário</button>
+                                <button onClick={onShowRegister} className="px-6 py-2 bg-red-500 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><Lock className="w-4 h-4" /> Registro</button>
                             )
                         )}
                     </div>
                 </div>
             )}
-            {error && (<div className="mt-6 p-4 bg-red-50 border-l-4 border-red-200 rounded-lg flex items-start gap-3 text-red-700"><AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" /><div><p className="font-bold">Não foi possível processar o arquivo</p><p className="text-sm opacity-90">{error}</p></div></div>)}
+            {error && (<div className="mt-6 p-4 bg-red-50 border-l-4 border-red-200 rounded-lg text-red-700"><p className="font-bold">Erro no arquivo</p><p className="text-sm">{error}</p></div>)}
         </div>
       </div>
 
-      {processing && <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-pulse"><div className="flex justify-between items-end mb-2"><div><h3 className="font-bold text-slate-800 flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin text-indigo-600" /> Processando IA...</h3><p className="text-sm text-slate-500">Isso pode levar alguns segundos.</p></div><span className="text-2xl font-bold text-indigo-600">{progress}%</span></div><div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden"><div className="bg-indigo-600 h-full transition-all duration-300 ease-out rounded-full" style={{ width: `${progress}%` }}></div></div></div>}
+      {processing && <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-pulse"><span className="text-2xl font-bold text-indigo-600">{progress}%</span><div className="w-full bg-slate-100 rounded-full h-4 mt-2"><div className="bg-indigo-600 h-full transition-all" style={{ width: `${progress}%` }}></div></div></div>}
       
-      {/* RESULTS SECTION */}
       {processedData.length > 0 && (
         <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><BarChart3 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Total Processado</p><p className="text-2xl font-bold text-slate-800">{processedData.length}</p></div></div>
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><BarChart3 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Total</p><p className="text-2xl font-bold text-slate-800">{processedData.length}</p></div></div>
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Sucesso</p><p className="text-2xl font-bold text-slate-800">{stats.success}</p></div></div>
-                {stats.skipped > 0 && (<div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-amber-100 text-amber-600 rounded-lg"><AlertTriangle className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Limite Atingido</p><p className="text-2xl font-bold text-slate-800">{stats.skipped}</p></div></div>)}
+                {stats.skipped > 0 && (<div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-amber-100 text-amber-600 rounded-lg"><AlertTriangle className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Limite</p><p className="text-2xl font-bold text-slate-800">{stats.skipped}</p></div></div>)}
                 
-                {/* BOTÕES DE AÇÃO FINAIS (Download + Salvar) */}
+                {/* BOTÕES FINAIS */}
                 <div className="flex flex-col gap-2">
-                    <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-3 rounded-lg shadow-lg text-white flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.02] transition-transform" onClick={downloadResults}>
-                        <Download className="w-5 h-5" /><span className="font-bold text-sm">Baixar CSV</span>
-                    </div>
-                    {/* BOTÃO DE SALVAR NO BANCO REINSERIDO */}
+                    <button onClick={downloadResults} className="p-3 bg-white border border-emerald-200 hover:bg-emerald-50 text-emerald-700 rounded-lg shadow-sm flex items-center justify-center gap-2 font-bold text-sm transition-colors">
+                        <Download className="w-4 h-4" /> Baixar CSV
+                    </button>
+                    
+                    {/* --- BOTÃO PRINCIPAL DE AÇÃO --- */}
                     <button 
-                        onClick={handleBatchSave} 
+                        onClick={handleSaveAndRedirect} 
                         disabled={isSaving}
                         className={`p-3 rounded-lg shadow-lg text-white flex items-center justify-center gap-2 transition-transform ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.02]'}`}
                     >
-                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin"/> : <CloudUpload className="w-5 h-5" />}
-                        <span className="font-bold text-sm">{isSaving ? 'Salvando...' : 'Salvar no Banco'}</span>
+                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin"/> : <LayoutDashboard className="w-5 h-5" />}
+                        <span className="font-bold text-sm">{isSaving ? 'Salvando...' : 'Salvar e Ir para Dashboard'}</span>
                     </button>
                 </div>
             </div>
@@ -213,35 +212,18 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                 <div className="overflow-x-auto max-h-[600px]">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10 shadow-sm">
-                            <tr>
-                                <th className="p-4 w-24">Tag</th>
-                                <th className="p-4 w-1/3">Descrição</th>
-                                <th className="p-4">Modo de Falha</th>
-                                <th className="p-4">Mecanismo</th>
-                                <th className="p-4 w-24">Conf.</th>
-                            </tr>
+                            <tr><th className="p-4">Tag</th><th className="p-4">Desc</th><th className="p-4">Modo</th><th className="p-4">Mec.</th><th className="p-4">Conf.</th></tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {processedData.map((row, i) => {
-                                const isLimitRow = row.modeCode === 'LIMIT';
-                                return (
-                                <tr key={i} className={`transition-colors ${isLimitRow ? 'bg-amber-50/50 hover:bg-amber-100/50' : 'hover:bg-indigo-50/30'}`}>
+                            {processedData.map((row, i) => (
+                                <tr key={i} className="hover:bg-slate-50">
                                     <td className="p-4 font-bold text-slate-700">{row.tag}</td>
-                                    <td className="p-4 text-slate-600 truncate max-w-xs" title={row.description}>{row.description}</td>
-                                    <td className={`p-4 font-medium ${isLimitRow ? 'text-amber-700 italic' : 'text-indigo-700'}`}>{row.mode}</td>
-                                    <td className={`p-4 ${isLimitRow ? 'text-amber-700 italic' : 'text-emerald-700'}`}>{row.mechanism}</td>
-                                    <td className="p-4">
-                                        {isLimitRow ? (
-                                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-200 text-amber-800">-</span>
-                                        ) : (
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold 
-                                                ${row.confidence > 0.8 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                                                {(row.confidence * 100).toFixed(0)}%
-                                            </span>
-                                        )}
-                                    </td>
+                                    <td className="p-4 text-slate-600 truncate max-w-xs">{row.description}</td>
+                                    <td className="p-4 text-indigo-700">{row.mode}</td>
+                                    <td className="p-4 text-emerald-700">{row.mechanism}</td>
+                                    <td className="p-4 font-bold">{(row.confidence*100).toFixed(0)}%</td>
                                 </tr>
-                            )})}
+                            ))}
                         </tbody>
                     </table>
                 </div>
