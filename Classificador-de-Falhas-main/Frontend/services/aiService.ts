@@ -1,33 +1,31 @@
-// src/services/aiService.ts (Atualizado com suporte a Premium)
+// src/services/aiService.ts (Versão Completa e Corrigida)
 import { FalhaInput, RespostaAPI } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// Interface atualizada para incluir o status premium
+// Interfaces
 export interface UserCredentials {
     email: string | null;
     name: string | null;
-    isPremium: boolean; // Novo campo
+    isPremium: boolean; 
 }
 
-// Interface atualizada para a resposta do registro
 interface RegisterResponse {
     status: string;
     message: string;
     total_uses: number;
-    is_premium: boolean; // Novo campo vindo do Python
+    is_premium: boolean;
 }
 
-// Obtém credenciais e status premium salvos no localStorage
+// --- HELPER: Obter credenciais ---
 export const getUserId = (): UserCredentials => {
     const email = localStorage.getItem('user_email');
     const name = localStorage.getItem('user_name');
-    // O localStorage salva tudo como string, então comparamos com "true"
     const isPremium = localStorage.getItem('user_premium') === 'true';
     return { email, name, isPremium };
 };
 
-// --- FUNÇÃO DE REGISTRO ---
+// --- 1. REGISTRAR USUÁRIO ---
 export const registrarUsuarioNoBackend = async (email: string, name: string): Promise<RegisterResponse> => {
     try {
         const response = await fetch(`${API_URL}/register`, {
@@ -41,16 +39,14 @@ export const registrarUsuarioNoBackend = async (email: string, name: string): Pr
             throw new Error(errorData.detail || `Erro no registro: ${response.status}`);
         }
 
-        // Retorna o JSON que agora inclui is_premium
         return await response.json();
-        
     } catch (error) {
         console.error("Erro ao registrar no backend:", error);
         throw error;
     }
 };
 
-// --- FUNÇÃO PRINCIPAL DE CLASSIFICAÇÃO ---
+// --- 2. CLASSIFICAR FALHA (CHAMADA IA) ---
 export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> => {
     const credentials = getUserId();
 
@@ -58,7 +54,6 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
         ...dados,
         user_email: credentials.email,
         user_name: credentials.name,
-        // Não precisamos enviar isPremium aqui, o backend verifica no banco
     };
 
     let response;
@@ -83,17 +78,16 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
     const resultado: RespostaAPI = await response.json();
     return resultado;
 };
-// --- NOVA FUNÇÃO: SALVAR REGISTRO DE FALHA ---
+
+// --- 3. SALVAR REGISTRO ÚNICO (Banco de Dados) ---
 export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
-    // Pega o email atual para garantir autoria
     const { email } = getUserId();
     
-    // Prepara o payload compatível com o modelo Python FailureLog
     const payload = {
         user_email: email || "anonimo",
         tag: record.tag,
         description: record.description,
-        impact: record.impact, // ou impactCode, dependendo do que você quer salvar
+        impact: record.impactCode || record.impact,
         mode_code: record.modeCode,
         mode_desc: record.mode,
         mech_code: record.mechanismCode,
@@ -102,20 +96,35 @@ export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
         det_desc: record.detection,
         confidence: record.confidence,
         status: record.status
-        // created_at é gerado pelo banco
     };
-    // --- NOVA FUNÇÃO: SALVAR LOTE ---
+
+    try {
+        const response = await fetch(`${API_URL}/save-record`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            throw new Error("Erro ao salvar no banco de dados.");
+        }
+    } catch (error) {
+        console.error("Erro ao salvar registro:", error);
+        throw error;
+    }
+};
+
+// --- 4. SALVAR LOTE (Banco de Dados) ---
 export const salvarLoteNoBackend = async (records: any[]): Promise<void> => {
     const { email } = getUserId();
     
     if (!email) throw new Error("Usuário não identificado.");
 
-    // Mapeia o array do Frontend para o formato do Banco de Dados
     const payload = records.map(record => ({
         user_email: email,
         tag: record.tag,
         description: record.description,
-        impact: record.impactCode || record.impact, // Garante que pega o código (D, S, U)
+        impact: record.impactCode || record.impact,
         mode_code: record.modeCode,
         mode_desc: record.mode,
         mech_code: record.mechanismCode,
@@ -139,21 +148,5 @@ export const salvarLoteNoBackend = async (records: any[]): Promise<void> => {
     } catch (error) {
         console.error("Erro no salvamento em lote:", error);
         throw error;
-    }
-};
-
-    try {
-        const response = await fetch(`${API_URL}/save-record`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-        });
-
-        if (!response.ok) {
-            throw new Error("Erro ao salvar no banco de dados.");
-        }
-    } catch (error) {
-        console.error("Erro ao salvar registro:", error);
-        throw error; // Repassa o erro para o componente mostrar feedback
     }
 };
