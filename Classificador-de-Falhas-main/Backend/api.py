@@ -253,6 +253,18 @@ def save_failure_record(record: FailureLog, session: Session = Depends(get_sessi
     except Exception as e:
         print(f"Erro ao salvar: {e}")
         raise HTTPException(status_code=500, detail="Erro ao salvar no banco.")
+        # Endpoint: Salvar Lote (Bulk Insert)
+@app.post("/save-batch-records", tags=["Data"])
+def save_batch_records(records: List[FailureLog], session: Session = Depends(get_session)):
+    try:
+        # Adiciona todos de uma vez
+        session.add_all(records)
+        session.commit()
+        return {"status": "success", "count": len(records), "message": f"{len(records)} registros salvos."}
+    except Exception as e:
+        print(f"Erro ao salvar lote: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao salvar lote no banco.")
 
 @app.get("/")
 def health(): return {"status": "ok"}
+
