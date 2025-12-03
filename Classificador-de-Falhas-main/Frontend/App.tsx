@@ -9,6 +9,7 @@ import QuotaModal from './components/QuotaModal';
 import { FailureRecord, TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
+import { registrarUsuarioNoBackend, getUserId, carregarHistoricoDoBackend } from './services/aiService';
 
 const GLOBAL_USAGE_LIMIT = 30;
 const MINIMUM_LOAD_TIME = 2500;
@@ -94,6 +95,33 @@ const AppContent: React.FC = () => {
   const addBatchRecords = (records: FailureRecord[]) => { 
       setHistory(prev => [...records, ...prev]); 
       // setCurrentTab(TabView.DASHBOARD); <--- REMOVIDO!
+  };
+
+  // ... (outras funções)
+
+  // --- NOVA FUNÇÃO: Carregar Histórico ---
+  const handleLoadHistory = async () => {
+      setIsLoading(true); // Reutiliza o loading ou cria um local
+      try {
+          const oldRecords = await carregarHistoricoDoBackend();
+          if (oldRecords.length === 0) {
+              alert("Nenhum histórico encontrado para este usuário.");
+          } else {
+              // Junta o histórico antigo com o atual, evitando duplicatas (opcional)
+              // Aqui vamos apenas substituir ou adicionar ao final
+              setHistory(prev => {
+                  // Cria um Set de IDs existentes para não duplicar
+                  const existingIds = new Set(prev.map(p => p.id));
+                  const newUnique = oldRecords.filter(r => !existingIds.has(r.id));
+                  return [...prev, ...newUnique];
+              });
+              alert(`${oldRecords.length} registros carregados do banco de dados.`);
+          }
+      } catch (error) {
+          alert("Erro ao conectar com o banco de dados.");
+      } finally {
+          setIsLoading(false);
+      }
   };
   
   // --- NOVA FUNÇÃO: Navegação manual ---
