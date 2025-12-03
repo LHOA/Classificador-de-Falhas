@@ -1,4 +1,4 @@
-// src/components/BatchProcessor.tsx (Final com Correção Premium)
+// src/components/BatchProcessor.tsx (Versão Final com Premium Ilimitado)
 import React, { useState, useRef } from 'react';
 import { 
   FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2, 
@@ -16,7 +16,7 @@ interface BatchProcessorProps {
   onBatchComplete: (records: FailureRecord[]) => void;
   onShowRegister: () => void; 
   onShowLimitReached: () => void;
-  // --- NOVA PROP ---
+  // Nova Prop necessária
   isPremium: boolean;
 }
 
@@ -34,7 +34,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Checagem direta do status em tempo real para habilitar o botão
   const { email: userEmailOnLoad } = getUserId();
   const isEffectivelyRegistered = !!userEmailOnLoad;
 
@@ -44,10 +43,10 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     return code;
   };
 
-  // --- MANIPULAÇÃO DE ARQUIVOS ---
   const handleDrag = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); if (e.type === "dragenter" || e.type === "dragover") setDragActive(true); else if (e.type === "dragleave") setDragActive(false); };
   const handleDrop = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setDragActive(false); if (e.dataTransfer.files && e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); };
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files && e.target.files[0]) processFile(e.target.files[0]); };
+  
   const processFile = (uploadedFile: File) => {
     setFile(uploadedFile); setError(null); setProcessedData([]); setProgress(0); setStats({ success: 0, fail: 0, skipped: 0 });
     const reader = new FileReader();
@@ -69,57 +68,106 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
     reader.readAsText(uploadedFile);
   };
 
-  // --- PROCESSAMENTO (CORRIGIDO COM PREMIUM) ---
+  // --- PROCESSAMENTO ---
   const processBatch = async () => {
     if (previewData.length === 0) return;
+
     const { email: user_email, name: user_name } = getUserId();
-    if (!user_email) { onShowRegister(); return; }
+    if (!user_email) {
+        onShowRegister();
+        return;
+    }
 
-    setProcessing(true); setProgress(0);
+    setProcessing(true);
+    setProgress(0);
     const results: FailureRecord[] = [];
-    let successCount = 0; let failCount = 0; let skippedCount = 0; let hitBackendLimit = false;
+    let successCount = 0;
+    let failCount = 0;
+    let skippedCount = 0;
+    let hitBackendLimit = false;
 
-    // 1. RESERVA DE QUOTA (Só se não for premium)
+    // 1. RESERVA DE QUOTA (Apenas se NÃO for premium)
     if (!isPremium) {
         try {
             const batchCheckResponse = await fetch(`${API_URL}/batch-process`, {
-                method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_email, batch_size: previewData.length }) 
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_email, batch_size: previewData.length }) 
             });
-            if (batchCheckResponse.status === 403) { onShowLimitReached(); setProcessing(false); return; }
+
+            if (batchCheckResponse.status === 403) {
+                onShowLimitReached(); 
+                setProcessing(false);
+                return;
+            }
             if (!batchCheckResponse.ok) throw new Error("Erro ao reservar quota.");
-        } catch (err: any) { setError(err.message || "Erro de API ao iniciar."); setProcessing(false); return; }
+
+        } catch (err: any) {
+            setError(err.message || "Erro de API ao iniciar.");
+            setProcessing(false);
+            return;
+        }
     }
 
-    // 2. LOOP
+    // 2. LOOP PRINCIPAL
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
       
-      // --- CORREÇÃO AQUI: Se for Premium, ignora o limite de 20 ---
+      // --- CORREÇÃO CRÍTICA: SÓ LIMITA SE NÃO FOR PREMIUM ---
       if (!isPremium && i >= FREE_BATCH_LIMIT) {
-          results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact), 
-            modeCode: 'LIMIT', mode: t('qm_limit_title'), confidenceMode: 0, mechanismCode: 'LIMIT', mechanism: t('qm_btn_contact_dev'), detectionCode: 'LIMIT', detection: t('qm_limit_text'), confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
-        skippedCount++; setProgress(Math.round(((i + 1) / previewData.length) * 100)); continue;
+          results.push({ 
+            id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact), 
+            modeCode: 'LIMIT', mode: t('qm_limit_title'), confidenceMode: 0, 
+            mechanismCode: 'LIMIT', mechanism: t('qm_btn_contact_dev'), confidenceMech: 0,
+            detectionCode: 'LIMIT', detection: t('qm_limit_text'), confidenceDet: 0, 
+            confidence: 0, status: 'IA', timestamp: new Date()
+        });
+        skippedCount++;
+        setProgress(Math.round(((i + 1) / previewData.length) * 100));
+        continue;
       }
 
       try {
-        const aiRes: RespostaAPI = await classificarFalha({ tag: row.tag, descricao: row.description, impacto: row.impact, user_email: user_email, user_name: user_name });
-        const record: FailureRecord = { id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact), modeCode: aiRes.modo[0].codigo, mode: getLabel(MAP_MODE, aiRes.modo[0].codigo), confidenceMode: aiRes.modo[0].confianca, mechanismCode: aiRes.mecanismo[0].codigo, mechanism: getLabel(MAP_MECH, aiRes.mecanismo[0].codigo), confidenceMech: aiRes.mecanismo[0].confianca, detectionCode: aiRes.deteccao[0].codigo, detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo), confidenceDet: aiRes.deteccao[0].confianca, confidence: aiRes.modo[0].confianca, status: 'IA', timestamp: new Date() };
-        results.push(record); successCount++;
+        const aiRes: RespostaAPI = await classificarFalha({
+          tag: row.tag, descricao: row.description, impacto: row.impact,
+          user_email: user_email, user_name: user_name
+        });
+        
+        const record: FailureRecord = {
+          id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact),
+          modeCode: aiRes.modo[0].codigo, mode: getLabel(MAP_MODE, aiRes.modo[0].codigo), confidenceMode: aiRes.modo[0].confianca,
+          mechanismCode: aiRes.mecanismo[0].codigo, mechanism: getLabel(MAP_MECH, aiRes.mecanismo[0].codigo), confidenceMech: aiRes.mecanismo[0].confianca,
+          detectionCode: aiRes.deteccao[0].codigo, detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo), confidenceDet: aiRes.deteccao[0].confianca,
+          confidence: aiRes.modo[0].confianca, status: 'IA', timestamp: new Date()
+        };
+        results.push(record);
+        successCount++;
+
       } catch (err: any) {
         console.error(`Linha ${i} falhou:`, err);
-        if (err.message === "QUOTA_EXCEEDED") { hitBackendLimit = true; break; }
-        failCount++; results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Erro', modeCode: 'ERR', mode: 'Erro API', confidenceMode: 0, mechanismCode: 'ERR', mechanism: 'Erro', detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
+        if (err.message === "QUOTA_EXCEEDED") {
+           hitBackendLimit = true;
+           break; 
+        }
+        failCount++;
+        results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Erro', modeCode: 'ERR', mode: 'Erro API', confidenceMode: 0, mechanismCode: 'ERR', mechanism: 'Erro', confidenceMech: 0, detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
       }
+
       if (hitBackendLimit) break;
       setProgress(Math.round(((i + 1) / previewData.length) * 100));
     }
 
     setStats({ success: successCount, fail: failCount, skipped: skippedCount });
-    setProcessedData(results); setProcessing(false); onBatchComplete(results);
-    if (skippedCount > 0 || hitBackendLimit) { onShowLimitReached(); }
+    setProcessedData(results);
+    setProcessing(false);
+    onBatchComplete(results);
+
+    if (skippedCount > 0 || hitBackendLimit) {
+        onShowLimitReached();
+    }
   };
 
-  const downloadResults = () => { /* ... (código igual) ... */
+  const downloadResults = () => {
       if (processedData.length === 0) return;
       const header = ["Tag", "Description", "Impact", "Mode Code", "Mode", "Mech Code", "Mech", "Detection", "Confidence"];
       const rows = processedData.map(r => [r.tag, `"${r.description.replace(/"/g, '""')}"`, r.impactCode, r.modeCode, r.mode, r.mechanismCode, r.mechanism, r.detection, (r.confidence*100).toFixed(1)+'%']);
@@ -152,9 +200,12 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
                     <div className="flex items-center gap-4"><div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center"><FileSpreadsheet className="w-6 h-6" /></div><div><h4 className="font-bold text-slate-800">{file.name}</h4><p className="text-sm text-slate-500">{(file.size / 1024).toFixed(1)} KB • {previewData.length} linhas detectadas</p></div></div>
                     <div className="flex gap-3">
                         <button onClick={() => setFile(null)} className="px-4 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium">Trocar Arquivo</button>
+                        
                         {!processing && processedData.length === 0 && (
                             isEffectivelyRegistered ? (
-                                <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105"><Play className="w-4 h-4" /> Iniciar Análise {isPremium ? '(Ilimitado)' : `(Máx ${FREE_BATCH_LIMIT})`}</button>
+                                <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105">
+                                    <Play className="w-4 h-4" /> Iniciar Análise {isPremium ? '(Ilimitado)' : `(Máx ${FREE_BATCH_LIMIT})`}
+                                </button>
                             ) : (
                                 <button onClick={onShowRegister} className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><Lock className="w-4 h-4" /> Registro Necessário</button>
                             )
@@ -165,19 +216,59 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
             {error && (<div className="mt-6 p-4 bg-red-50 border-l-4 border-red-200 rounded-lg flex items-start gap-3 text-red-700"><AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" /><div><p className="font-bold">Não foi possível processar o arquivo</p><p className="text-sm opacity-90">{error}</p></div></div>)}
         </div>
       </div>
+
       {processing && <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 animate-pulse"><div className="flex justify-between items-end mb-2"><div><h3 className="font-bold text-slate-800 flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin text-indigo-600" /> Processando IA...</h3><p className="text-sm text-slate-500">Isso pode levar alguns segundos.</p></div><span className="text-2xl font-bold text-indigo-600">{progress}%</span></div><div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden"><div className="bg-indigo-600 h-full transition-all duration-300 ease-out rounded-full" style={{ width: `${progress}%` }}></div></div></div>}
       
       {processedData.length > 0 && (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><BarChart3 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Total Processado</p><p className="text-2xl font-bold text-slate-800">{processedData.length}</p></div></div>
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Sucesso</p><p className="text-2xl font-bold text-slate-800">{stats.success}</p></div></div>
+                {stats.skipped > 0 && (<div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-amber-100 text-amber-600 rounded-lg"><AlertTriangle className="w-6 h-6"/></div><div><p className="text-xs uppercase font-bold text-slate-400">Limite Atingido</p><p className="text-2xl font-bold text-slate-800">{stats.skipped}</p></div></div>)}
                 <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-5 rounded-xl shadow-lg text-white flex flex-col justify-center items-center cursor-pointer hover:scale-[1.02] transition-transform" onClick={downloadResults}><Download className="w-8 h-8 mb-2" /><span className="font-bold">Baixar Relatório CSV</span></div>
             </div>
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"><div className="overflow-x-auto max-h-[600px]"><table className="w-full text-left text-sm"><thead className="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10 shadow-sm"><tr><th className="p-4 w-24">Tag</th><th className="p-4 w-1/3">Descrição</th><th className="p-4">Modo de Falha</th><th className="p-4">Mecanismo</th><th className="p-4 w-24">Conf.</th></tr></thead><tbody className="divide-y divide-slate-100">{processedData.map((row, i) => { const isLimitRow = row.modeCode === 'LIMIT'; return (<tr key={i} className={`transition-colors ${isLimitRow ? 'bg-amber-50/50 hover:bg-amber-100/50' : 'hover:bg-indigo-50/30'}`}><td className="p-4 font-bold text-slate-700">{row.tag}</td><td className="p-4 text-slate-600 truncate max-w-xs" title={row.description}>{row.description}</td><td className={`p-4 font-medium ${isLimitRow ? 'text-amber-700 italic' : 'text-indigo-700'}`}>{row.mode}</td><td className={`p-4 ${isLimitRow ? 'text-amber-700 italic' : 'text-emerald-700'}`}>{row.mechanism}</td><td className="p-4">{isLimitRow ? (<span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-200 text-amber-800">-</span>) : (<span className={`px-2 py-1 rounded-full text-xs font-bold ${row.confidence > 0.8 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{(row.confidence * 100).toFixed(0)}%</span>)}</td></tr>)})}</tbody></table></div></div>
+            {/* ... Tabela de Resultados (Código já está correto no componente anterior) ... */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto max-h-[600px]">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 font-bold text-slate-500 sticky top-0 z-10 shadow-sm">
+                            <tr>
+                                <th className="p-4 w-24">Tag</th>
+                                <th className="p-4 w-1/3">Descrição</th>
+                                <th className="p-4">Modo de Falha</th>
+                                <th className="p-4">Mecanismo</th>
+                                <th className="p-4 w-24">Conf.</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {processedData.map((row, i) => {
+                                const isLimitRow = row.modeCode === 'LIMIT';
+                                return (
+                                <tr key={i} className={`transition-colors ${isLimitRow ? 'bg-amber-50/50 hover:bg-amber-100/50' : 'hover:bg-indigo-50/30'}`}>
+                                    <td className="p-4 font-bold text-slate-700">{row.tag}</td>
+                                    <td className="p-4 text-slate-600 truncate max-w-xs" title={row.description}>{row.description}</td>
+                                    <td className={`p-4 font-medium ${isLimitRow ? 'text-amber-700 italic' : 'text-indigo-700'}`}>{row.mode}</td>
+                                    <td className={`p-4 ${isLimitRow ? 'text-amber-700 italic' : 'text-emerald-700'}`}>{row.mechanism}</td>
+                                    <td className="p-4">
+                                        {isLimitRow ? (
+                                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-amber-200 text-amber-800">-</span>
+                                        ) : (
+                                            <span className={`px-2 py-1 rounded-full text-xs font-bold 
+                                                ${row.confidence > 0.8 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                                {(row.confidence * 100).toFixed(0)}%
+                                            </span>
+                                        )}
+                                    </td>
+                                </tr>
+                            )})}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
       )}
     </div>
   );
 };
+
 export default BatchProcessor;
