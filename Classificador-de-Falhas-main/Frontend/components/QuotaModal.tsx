@@ -1,6 +1,6 @@
-// src/components/QuotaModal.tsx (Versão com Mensagem de Bloqueio Específica)
+// src/components/QuotaModal.tsx
 import React, { useState } from 'react';
-import { Mail, User, Lock, CheckCircle, HeartHandshake, Loader2, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Mail, User, Lock, CheckCircle, HeartHandshake, Loader2, AlertTriangle, ExternalLink, X } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface QuotaModalProps {
@@ -8,17 +8,19 @@ interface QuotaModalProps {
   onClose: () => void;
   showContactMessage?: boolean;
   isRegistering?: boolean;
+  // NOVA PROP: Controla se o usuário pode fechar o modal
+  canClose?: boolean;
 }
 
-const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContactMessage = false, isRegistering = false }) => {
+const LINKEDIN_URL = "https://www.linkedin.com/in/luishenriqueifma/";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContactMessage = false, isRegistering = false, canClose = true }) => {
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [emailError, setEmailError] = useState('');
   const [isSuccessStep, setIsSuccessStep] = useState(false);
-
-  // SEU LINK DO LINKEDIN AQUI
-  const LINKEDIN_URL = "https://www.linkedin.com/in/luishenriqueifma/";
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -43,10 +45,10 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
       onRegister(email, name);
   };
 
-  // --- RENDERIZAÇÃO DO BLOQUEIO DE LIMITE ---
+  // --- TELA DE LIMITE ATINGIDO ---
   if (showContactMessage) {
     return (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border-t-4 border-amber-500">
             <div className="p-8 text-center">
                 <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -56,39 +58,35 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
                 
                 <div className="text-slate-600 mb-6 text-sm leading-relaxed space-y-4">
                     <p dangerouslySetInnerHTML={{ __html: t('qm_limit_text') }}></p>
-                    <p className="text-lg font-bold text-indigo-700">
-                        {t('qm_developer_name')}
-                    </p>
+                    <p className="text-lg font-bold text-indigo-700">{t('qm_developer_name')}</p>
                 </div>
 
-                <a 
-                    href={LINKEDIN_URL} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 mb-3"
-                >
+                <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 mb-3">
                     {t('qm_btn_contact_dev')} <ExternalLink className="w-4 h-4"/>
                 </a>
-                <button 
-                    onClick={onClose}
-                    className="text-slate-500 hover:text-slate-700 text-sm font-medium underline"
-                >
-                    Fechar e visualizar histórico
-                </button>
+                {/* Botão fechar só aparece aqui se explicitamente permitido (neste caso é informativo, então ok) */}
+                <button onClick={onClose} className="text-slate-500 hover:text-slate-700 text-sm font-medium underline">Fechar e visualizar histórico</button>
             </div>
           </div>
         </div>
     );
   }
 
-  // --- RENDERIZAÇÃO DO REGISTRO NORMAL (O código antigo continua aqui) ---
+  // --- TELA DE REGISTRO ---
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
         
         {!isSuccessStep && (
             <>
                 <div className="bg-indigo-600 p-6 text-white text-center relative">
+                  {/* SÓ MOSTRA O BOTÃO X SE canClose FOR TRUE */}
+                  {canClose && (
+                      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors">
+                        <X className="w-5 h-5"/>
+                      </button>
+                  )}
+                  
                   <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
                     <Lock className="w-6 h-6" />
                   </div>
@@ -99,11 +97,17 @@ const QuotaModal: React.FC<QuotaModalProps> = ({ onRegister, onClose, showContac
                 <form onSubmit={handlePreSubmit} className="p-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">{t('qm_label_name')}</label>
-                    <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-4 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder={t('qm_placeholder_name')} />
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><User className="w-5 h-5 text-slate-400" /></div>
+                        <input type="text" required value={name} onChange={(e) => setName(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors" placeholder={t('qm_placeholder_name')} />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">{t('qm_label_email')}</label>
-                    <input type="email" required value={email} onChange={(e) => { setEmail(e.target.value); setEmailError(''); }} className={`w-full pl-4 pr-4 py-2 border rounded-lg focus:ring-2 transition-colors ${emailError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500'}`} placeholder={t('qm_placeholder_email')} />
+                    <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Mail className="w-5 h-5 text-slate-400" /></div>
+                        <input type="email" required value={email} onChange={(e) => { setEmail(e.target.value); setEmailError(''); }} className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 transition-colors ${emailError ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-indigo-500 focus:border-indigo-500'}`} placeholder={t('qm_placeholder_email')} />
+                    </div>
                     {emailError && (<p className="text-red-500 text-xs mt-1 font-medium">{emailError}</p>)}
                   </div>
                   <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors shadow-md flex items-center justify-center gap-2 mt-6">{t('qm_btn_access_platform')}</button>
