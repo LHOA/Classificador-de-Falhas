@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, BrainCircuit } from 'lucide-react';
+// Adicionado 'Menu' aos imports
+import { Loader2, Menu } from 'lucide-react'; 
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
@@ -23,27 +24,25 @@ const AppContent: React.FC = () => {
   const [userStatus, setUserStatus] = useState<UserStatus>('needs_register');
   const [showModal, setShowModal] = useState(true); 
   const [showLimitMessage, setShowLimitMessage] = useState(false);
-  
   const [isPremiumUser, setIsPremiumUser] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
 
-  // --- LÓGICA DE INICIALIZAÇÃO BLINDADA COM DELAY MÍNIMO ---
   useEffect(() => {
     const checkUserStatusOnLoad = async () => {
         setIsLoading(true);
-        
         const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
         
         const { email, name, isPremium: initialPremiumState } = getUserId();
+        const anonCount = parseInt(localStorage.getItem('anon_eval_count') || '0', 10);
         
         setIsPremiumUser(initialPremiumState);
 
         if (email && name) {
             try {
                 const response = await registrarUsuarioNoBackend(email, name);
-                
                 setIsPremiumUser(response.is_premium);
                 localStorage.setItem('user_premium', response.is_premium.toString());
 
@@ -58,51 +57,40 @@ const AppContent: React.FC = () => {
                     setShowLimitMessage(false);
                 }
                 setShowModal(false);
-
             } catch (error) {
-                console.error("Erro ao sincronizar usuário ao iniciar:", error);
+                console.error("Erro de sync:", error);
                 if (initialPremiumState) {
-                     setUserStatus('registered');
-                     setShowModal(false);
+                     setUserStatus('registered'); setShowModal(false);
                 } else {
-                     setUserStatus('needs_register');
-                     setShowModal(true);
+                     setUserStatus('needs_register'); setShowModal(true);
                 }
             } finally {
                 await timerPromise;
                 setIsLoading(false);
             }
         } else {
-            if (parseInt(localStorage.getItem('anon_eval_count') || '0', 10) === 0) {
-                 setUserStatus('trial_run'); 
-                 setShowModal(false);
+            if (anonCount === 0) {
+                 setUserStatus('trial_run'); setShowModal(false);
             } else {
-                 setUserStatus('needs_register');
-                 setShowModal(true);
+                 setUserStatus('needs_register'); setShowModal(true);
             }
             await timerPromise;
             setIsLoading(false);
         }
     };
-
     checkUserStatusOnLoad();
   }, []);
-  // ------------------------------------
 
   const handleShowRegister = () => {
     if (userStatus === 'limit_reached') { setShowLimitMessage(true); } 
     else { setUserStatus('needs_register'); setShowModal(true); }
   };
-  
-  const handleShowLimitReached = () => {
-    setUserStatus('limit_reached'); setShowLimitMessage(true);
-  };
+  const handleShowLimitReached = () => { setUserStatus('limit_reached'); setShowLimitMessage(true); };
 
   const handleRegisterSuccess = async (email: string, name: string) => {
     setIsRegisteringBackend(true);
     try {
         const response = await registrarUsuarioNoBackend(email, name);
-        
         localStorage.setItem('user_email', email);
         localStorage.setItem('user_name', name);
         localStorage.setItem('user_premium', response.is_premium.toString());
@@ -110,19 +98,15 @@ const AppContent: React.FC = () => {
         setIsPremiumUser(response.is_premium);
 
         if (response.is_premium) {
-             setUserStatus('registered');
-             setShowLimitMessage(false);
+             setUserStatus('registered'); setShowLimitMessage(false);
         } else if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
-             setUserStatus('limit_reached');
-             setShowLimitMessage(true);
+             setUserStatus('limit_reached'); setShowLimitMessage(true);
         } else {
-             setUserStatus('registered');
-             setShowLimitMessage(false);
+             setUserStatus('registered'); setShowLimitMessage(false);
         }
         setShowModal(false);
-
     } catch (error) {
-        alert("Houve um problema ao conectar com o servidor de registro.");
+        alert("Erro ao conectar com o servidor.");
     } finally {
         setIsRegisteringBackend(false);
     }
@@ -130,7 +114,6 @@ const AppContent: React.FC = () => {
 
   const addRecord = (record: FailureRecord) => { setHistory(prev => [record, ...prev]); setCurrentTab(TabView.DASHBOARD); };
   const addBatchRecords = (records: FailureRecord[]) => { setHistory(prev => [...records, ...prev]); setCurrentTab(TabView.DASHBOARD); };
-  
   const getTitle = () => {
     switch (currentTab) {
       case TabView.DASHBOARD: return t('nav_dashboard');
@@ -146,7 +129,7 @@ const AppContent: React.FC = () => {
         <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
             <div className="text-center animate-in fade-in duration-1000 flex flex-col items-center">
                 <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100 p-4">
-                    <img src="/loading.gif" alt="Loading Animation" className="w-full h-full object-contain"/>
+                    <img src="/loading.gif" alt="Loading" className="w-full h-full object-contain" />
                 </div>
                 <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Failure Map</h2>
                 <p className="text-slate-500 text-sm mt-2 font-medium animate-pulse">Sincronizando perfil e permissões...</p>
@@ -160,20 +143,15 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
-      <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} onCloseMobile={() => setIsSidebarOpen(false)} />
-      
-      <div className={`fixed inset-y-0 left-0 z-30 w-full max-w-[280px] bg-slate-900 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:hidden`}>
+      <div className={`fixed inset-y-0 left-0 z-30 w-full max-w-[280px] md:max-w-none md:w-64 bg-slate-900 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} onCloseMobile={() => setIsSidebarOpen(false)} />
       </div>
-
-      {isSidebarOpen && (
-          <div className="fixed inset-0 z-20 bg-slate-900/50 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>
-      )}
+      {isSidebarOpen && (<div className="fixed inset-0 z-20 bg-slate-900/50 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>)}
       
       <div className="flex-1 flex flex-col min-w-0 md:pl-64">
         <header className="md:hidden h-16 flex items-center justify-between p-4 border-b border-slate-200 bg-white shadow-sm z-10">
-           <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-indigo-600">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" /></svg>
+           <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-slate-100">
+             <Menu className="h-6 w-6" />
            </button>
            <span className="text-xl font-bold text-slate-900">{getTitle()}</span>
            <div className="w-6 h-6"></div>
@@ -192,18 +170,15 @@ const AppContent: React.FC = () => {
             </div>
 
             {currentTab === TabView.DASHBOARD && <Dashboard data={history} />}
+            
             {currentTab === TabView.CLASSIFIER && (
               <Classifier onSave={addRecord} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isQuotaEnforced={isQuotaEnforced} />
             )}
+            
             {currentTab === TabView.BATCH && (
-              <BatchProcessor 
-                 onBatchComplete={addBatchRecords}
-                 onShowRegister={handleShowRegister}
-                 onShowLimitReached={handleShowLimitReached}
-                 // --- CORREÇÃO: Adicionado isPremium ---
-                 isPremium={isPremiumUser} 
-              />
+              <BatchProcessor onBatchComplete={addBatchRecords} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isRegistered={userStatus === 'registered' || isPremiumUser} />
             )}
+            
             {currentTab === TabView.DICTIONARY && <Dictionary />}
            </div>
         </main>
