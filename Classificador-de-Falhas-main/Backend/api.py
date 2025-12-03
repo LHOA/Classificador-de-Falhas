@@ -265,6 +265,19 @@ def save_batch_records(records: List[FailureLog], session: Session = Depends(get
         print(f"Erro ao salvar lote: {e}")
         raise HTTPException(status_code=500, detail="Erro ao salvar lote no banco.")
 
+# Endpoint: Buscar Histórico
+@app.get("/history/{user_email}", response_model=List[FailureLog], tags=["Data"])
+def get_user_history(user_email: str, session: Session = Depends(get_session)):
+    try:
+        # Busca os últimos 50 registros do usuário, do mais recente para o mais antigo
+        statement = select(FailureLog).where(FailureLog.user_email == user_email).order_by(FailureLog.created_at.desc()).limit(50)
+        results = session.exec(statement).all()
+        return results
+    except Exception as e:
+        print(f"Erro ao buscar histórico: {e}")
+        raise HTTPException(status_code=500, detail="Erro ao buscar histórico.")
+
 @app.get("/")
 def health(): return {"status": "ok"}
+
 
