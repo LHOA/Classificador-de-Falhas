@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// Adicionado 'Menu' aos imports
-import { Loader2, Menu } from 'lucide-react'; 
+import { Loader2, BrainCircuit, Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
@@ -14,18 +13,22 @@ import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 const GLOBAL_USAGE_LIMIT = 30;
 const MINIMUM_LOAD_TIME = 2500;
 
-type UserStatus = 'needs_register' | 'registered' | 'limit_reached' | 'trial_run';
+// Removido 'trial_run', agora ou precisa registrar ou já está registrado/bloqueado
+type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage(); 
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
   const [history, setHistory] = useState<FailureRecord[]>([]);
   
+  // Estado inicial assume que precisa registrar até que se prove o contrário
   const [userStatus, setUserStatus] = useState<UserStatus>('needs_register');
+  
+  // Modal começa TRUE para garantir bloqueio se não houver dados
   const [showModal, setShowModal] = useState(true); 
   const [showLimitMessage, setShowLimitMessage] = useState(false);
-  const [isPremiumUser, setIsPremiumUser] = useState(false);
   
+  const [isPremiumUser, setIsPremiumUser] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
@@ -36,11 +39,11 @@ const AppContent: React.FC = () => {
         const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
         
         const { email, name, isPremium: initialPremiumState } = getUserId();
-        const anonCount = parseInt(localStorage.getItem('anon_eval_count') || '0', 10);
         
         setIsPremiumUser(initialPremiumState);
 
         if (email && name) {
+            // 1. Tem dados locais: Tenta Sincronizar
             try {
                 const response = await registrarUsuarioNoBackend(email, name);
                 setIsPremiumUser(response.is_premium);
@@ -56,28 +59,25 @@ const AppContent: React.FC = () => {
                     setUserStatus('registered');
                     setShowLimitMessage(false);
                 }
+                // Se tem usuário válido, fecha o modal de registro
                 setShowModal(false);
+
             } catch (error) {
-                console.error("Erro de sync:", error);
-                if (initialPremiumState) {
-                     setUserStatus('registered'); setShowModal(false);
-                } else {
-                     setUserStatus('needs_register'); setShowModal(true);
-                }
-            } finally {
-                await timerPromise;
-                setIsLoading(false);
+                // Falha de rede: Confia no cache local temporariamente
+                console.error("Offline ou erro sync:", error);
+                setUserStatus('registered'); 
+                setShowModal(false);
             }
         } else {
-            if (anonCount === 0) {
-                 setUserStatus('trial_run'); setShowModal(false);
-            } else {
-                 setUserStatus('needs_register'); setShowModal(true);
-            }
-            await timerPromise;
-            setIsLoading(false);
+            // 2. Não tem dados: Força Registro
+            setUserStatus('needs_register');
+            setShowModal(true);
         }
+        
+        await timerPromise;
+        setIsLoading(false);
     };
+
     checkUserStatusOnLoad();
   }, []);
 
@@ -106,7 +106,7 @@ const AppContent: React.FC = () => {
         }
         setShowModal(false);
     } catch (error) {
-        alert("Erro ao conectar com o servidor.");
+        alert("Erro de conexão. Tente novamente.");
     } finally {
         setIsRegisteringBackend(false);
     }
@@ -114,6 +114,7 @@ const AppContent: React.FC = () => {
 
   const addRecord = (record: FailureRecord) => { setHistory(prev => [record, ...prev]); setCurrentTab(TabView.DASHBOARD); };
   const addBatchRecords = (records: FailureRecord[]) => { setHistory(prev => [...records, ...prev]); setCurrentTab(TabView.DASHBOARD); };
+  
   const getTitle = () => {
     switch (currentTab) {
       case TabView.DASHBOARD: return t('nav_dashboard');
@@ -139,7 +140,9 @@ const AppContent: React.FC = () => {
   }
 
   const isQuotaEnforced = userStatus === 'limit_reached';
-  const disableClassifier = userStatus === 'needs_register'; 
+  
+  // Se precisa registrar, desabilita interações de fundo
+  const disableClassifier = userStatus === 'needs_register';
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
@@ -150,17 +153,19 @@ const AppContent: React.FC = () => {
       
       <div className="flex-1 flex flex-col min-w-0 md:pl-64">
         <header className="md:hidden h-16 flex items-center justify-between p-4 border-b border-slate-200 bg-white shadow-sm z-10">
-           <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-slate-100">
-             <Menu className="h-6 w-6" />
-           </button>
+           <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-slate-100"><Menu className="h-6 w-6" /></button>
            <span className="text-xl font-bold text-slate-900">{getTitle()}</span>
            <div className="w-6 h-6"></div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+           
+           {/* OVERLAY DE BLOQUEIO SE NÃO REGISTRADO */}
            {disableClassifier && !showModal && !showLimitMessage && (
-             <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
-                <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">Clique para Registrar e Acessar</button>
+             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">
+                    Clique para Registrar e Acessar
+                </button>
              </div>
            )}
 
@@ -170,33 +175,32 @@ const AppContent: React.FC = () => {
             </div>
 
             {currentTab === TabView.DASHBOARD && <Dashboard data={history} />}
-            
             {currentTab === TabView.CLASSIFIER && (
               <Classifier onSave={addRecord} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isQuotaEnforced={isQuotaEnforced} />
             )}
-            
             {currentTab === TabView.BATCH && (
-              <BatchProcessor 
-                 onBatchComplete={addBatchRecords}
-                 onShowRegister={handleShowRegister}
-                 onShowLimitReached={handleShowLimitReached}
-                 // Mantemos isRegistered para controle de acesso básico
-                 isRegistered={userStatus === 'registered' || isPremiumUser}
-                 // --- CORREÇÃO AQUI: Passando a prop isPremium ---
-                 isPremium={isPremiumUser} 
-              />
+              <BatchProcessor onBatchComplete={addBatchRecords} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isPremium={isPremiumUser} />
             )}
-            
             {currentTab === TabView.DICTIONARY && <Dictionary />}
            </div>
         </main>
       </div>
       
+      {/* MODAL DE REGISTRO INICIAL (Sem botão de fechar se for o inicial) */}
       {showModal && userStatus === 'needs_register' && !showLimitMessage && (
-        <QuotaModal onRegister={handleRegisterSuccess} onClose={() => {}} showContactMessage={false} isRegistering={isRegisteringBackend} />
+        <QuotaModal 
+            onRegister={handleRegisterSuccess} 
+            onClose={() => {}} // Função vazia impede fechamento
+            showContactMessage={false} 
+            isRegistering={isRegisteringBackend}
+            // IMPEDE FECHAR VISUALMENTE
+            canClose={false} 
+        />
       )}
+      
+      {/* MODAL DE LIMITE ATINGIDO (Pode fechar para ver histórico, mas bloqueia ações) */}
       {showLimitMessage && (
-        <QuotaModal onRegister={handleRegisterSuccess} onClose={() => setShowLimitMessage(false)} showContactMessage={true} isRegistering={false} />
+        <QuotaModal onRegister={handleRegisterSuccess} onClose={() => setShowLimitMessage(false)} showContactMessage={true} isRegistering={false} canClose={true} />
       )}
     </div>
   );
