@@ -111,7 +111,13 @@ def on_startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173", 
+        "https://www.failuremap.com.br", 
+        "https://failuremap.com.br",
+        "https://classificador-de-falhas-production.up.railway.app",
+        "https://fault-finder-ai.up.railway.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -170,13 +176,17 @@ def register_user(user: UserRegistration, session: Session = Depends(get_session
 
 @app.post("/classificar", response_model=RespostaAPI)
 def classificar_falha(dados: DadosEntrada, session: Session = Depends(get_session)):
-    # Controle de Acesso
-    user_db = None
-    if dados.user_email:
-        user_db = session.get(UserUsage, dados.user_email)
-        # Só bloqueia se NÃO for premium E tiver atingido 30
-        if user_db and (not user_db.is_premium) and user_db.total_evaluations >= 30:
-            raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
+    # Controle de Acesso Restrito
+    if not dados.user_email:
+        raise HTTPException(status_code=401, detail="Authentication required")
+        
+    user_db = session.get(UserUsage, dados.user_email)
+    if not user_db:
+        raise HTTPException(status_code=401, detail="User not registered")
+
+    # Só bloqueia se NÃO for premium E tiver atingido 30
+    if not user_db.is_premium and user_db.total_evaluations >= 30:
+        raise HTTPException(status_code=403, detail="QUOTA_EXCEEDED")
 
     if modelos is None or encoders is None:
         raise HTTPException(status_code=503, detail="ML Service Unavailable")

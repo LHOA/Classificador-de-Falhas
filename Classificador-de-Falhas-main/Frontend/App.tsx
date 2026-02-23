@@ -8,7 +8,6 @@ import Dictionary from './components/Dictionary';
 import QuotaModal from './components/QuotaModal';
 import { FailureRecord, TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-import { registrarUsuarioNoBackend, getUserId } from './services/aiService';
 import { registrarUsuarioNoBackend, getUserId, carregarHistoricoDoBackend } from './services/aiService';
 
 const GLOBAL_USAGE_LIMIT = 30;
@@ -17,57 +16,56 @@ const MINIMUM_LOAD_TIME = 2500;
 type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
 
 const AppContent: React.FC = () => {
-  const { t } = useLanguage(); 
+  const { t } = useLanguage();
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
-  const [history, setHistory] = useState<FailureRecord[]>([]);
-  
+
   const [userStatus, setUserStatus] = useState<UserStatus>('needs_register');
-  const [showModal, setShowModal] = useState(true); 
+  const [showModal, setShowModal] = useState(true);
   const [showLimitMessage, setShowLimitMessage] = useState(false);
   const [isPremiumUser, setIsPremiumUser] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     const checkUserStatusOnLoad = async () => {
-        setIsLoading(true);
-        const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
-        const { email, name, isPremium: initialPremiumState } = getUserId();
-        
-        setIsPremiumUser(initialPremiumState);
+      setIsLoading(true);
+      const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
+      const { email, name, isPremium: initialPremiumState } = getUserId();
 
-        if (email && name) {
-            try {
-                const response = await registrarUsuarioNoBackend(email, name);
-                setIsPremiumUser(response.is_premium);
-                localStorage.setItem('user_premium', response.is_premium.toString());
+      setIsPremiumUser(initialPremiumState);
 
-                if (response.is_premium) {
-                    setUserStatus('registered'); setShowLimitMessage(false);
-                } else if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
-                    setUserStatus('limit_reached'); setShowLimitMessage(true);
-                } else {
-                    setUserStatus('registered'); setShowLimitMessage(false);
-                }
-                setShowModal(false);
-            } catch (error) {
-                console.error("Erro de sync:", error);
-                if (initialPremiumState) { setUserStatus('registered'); setShowModal(false); } 
-                else { setUserStatus('needs_register'); setShowModal(true); }
-            } finally {
-                await timerPromise; setIsLoading(false);
-            }
-        } else {
-            setUserStatus('needs_register'); setShowModal(true);
-            await timerPromise; setIsLoading(false);
+      if (email && name) {
+        try {
+          const response = await registrarUsuarioNoBackend(email, name);
+          setIsPremiumUser(response.is_premium);
+          localStorage.setItem('user_premium', response.is_premium.toString());
+
+          if (response.is_premium) {
+            setUserStatus('registered'); setShowLimitMessage(false);
+          } else if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
+            setUserStatus('limit_reached'); setShowLimitMessage(true);
+          } else {
+            setUserStatus('registered'); setShowLimitMessage(false);
+          }
+          setShowModal(false);
+        } catch (error) {
+          console.error("Erro de sync:", error);
+          if (initialPremiumState) { setUserStatus('registered'); setShowModal(false); }
+          else { setUserStatus('needs_register'); setShowModal(true); }
+        } finally {
+          await timerPromise; setIsLoading(false);
         }
+      } else {
+        setUserStatus('needs_register'); setShowModal(true);
+        await timerPromise; setIsLoading(false);
+      }
     };
     checkUserStatusOnLoad();
   }, []);
 
   const handleShowRegister = () => {
-    if (userStatus === 'limit_reached') { setShowLimitMessage(true); } 
+    if (userStatus === 'limit_reached') { setShowLimitMessage(true); }
     else { setUserStatus('needs_register'); setShowModal(true); }
   };
   const handleShowLimitReached = () => { setUserStatus('limit_reached'); setShowLimitMessage(true); };
@@ -75,55 +73,24 @@ const AppContent: React.FC = () => {
   const handleRegisterSuccess = async (email: string, name: string) => {
     setIsRegisteringBackend(true);
     try {
-        const response = await registrarUsuarioNoBackend(email, name);
-        localStorage.setItem('user_email', email);
-        localStorage.setItem('user_name', name);
-        localStorage.setItem('user_premium', response.is_premium.toString());
-        setIsPremiumUser(response.is_premium);
+      const response = await registrarUsuarioNoBackend(email, name);
+      localStorage.setItem('user_email', email);
+      localStorage.setItem('user_name', name);
+      localStorage.setItem('user_premium', response.is_premium.toString());
+      setIsPremiumUser(response.is_premium);
 
-        if (response.is_premium) { setUserStatus('registered'); setShowLimitMessage(false); } 
-        else if (response.total_uses >= GLOBAL_USAGE_LIMIT) { setUserStatus('limit_reached'); setShowLimitMessage(true); } 
-        else { setUserStatus('registered'); setShowLimitMessage(false); }
-        setShowModal(false);
-    } catch (error) { alert("Erro ao conectar com o servidor."); } 
+      if (response.is_premium) { setUserStatus('registered'); setShowLimitMessage(false); }
+      else if (response.total_uses >= GLOBAL_USAGE_LIMIT) { setUserStatus('limit_reached'); setShowLimitMessage(true); }
+      else { setUserStatus('registered'); setShowLimitMessage(false); }
+      setShowModal(false);
+    } catch (error) { alert("Erro ao conectar com o servidor."); }
     finally { setIsRegisteringBackend(false); }
   };
 
-  const addRecord = (record: FailureRecord) => { setHistory(prev => [record, ...prev]); setCurrentTab(TabView.DASHBOARD); };
-  
-  // --- ALTERAÇÃO 1: Removemos o redirecionamento automático daqui ---
-  const addBatchRecords = (records: FailureRecord[]) => { 
-      setHistory(prev => [...records, ...prev]); 
-      // setCurrentTab(TabView.DASHBOARD); <--- REMOVIDO!
+  const handleClassificationSuccess = () => {
+    setCurrentTab(TabView.DASHBOARD);
   };
 
-  // ... (outras funções)
-
-  // --- NOVA FUNÇÃO: Carregar Histórico ---
-  const handleLoadHistory = async () => {
-      setIsLoading(true); // Reutiliza o loading ou cria um local
-      try {
-          const oldRecords = await carregarHistoricoDoBackend();
-          if (oldRecords.length === 0) {
-              alert("Nenhum histórico encontrado para este usuário.");
-          } else {
-              // Junta o histórico antigo com o atual, evitando duplicatas (opcional)
-              // Aqui vamos apenas substituir ou adicionar ao final
-              setHistory(prev => {
-                  // Cria um Set de IDs existentes para não duplicar
-                  const existingIds = new Set(prev.map(p => p.id));
-                  const newUnique = oldRecords.filter(r => !existingIds.has(r.id));
-                  return [...prev, ...newUnique];
-              });
-              alert(`${oldRecords.length} registros carregados do banco de dados.`);
-          }
-      } catch (error) {
-          alert("Erro ao conectar com o banco de dados.");
-      } finally {
-          setIsLoading(false);
-      }
-  };
-  
   // --- NOVA FUNÇÃO: Navegação manual ---
   const goToDashboard = () => setCurrentTab(TabView.DASHBOARD);
 
@@ -139,20 +106,20 @@ const AppContent: React.FC = () => {
 
   if (isLoading) {
     return (
-        <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
-            <div className="text-center animate-in fade-in duration-1000 flex flex-col items-center">
-                <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100 p-4">
-                    <img src="/loading.gif" alt="Loading" className="w-full h-full object-contain" />
-                </div>
-                <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Failure Map</h2>
-                <p className="text-slate-500 text-sm mt-2 font-medium animate-pulse">Sincronizando perfil e permissões...</p>
-            </div>
+      <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
+        <div className="text-center animate-in fade-in duration-1000 flex flex-col items-center">
+          <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100 p-4">
+            <img src="/loading.gif" alt="Loading" className="w-full h-full object-contain" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Failure Map</h2>
+          <p className="text-slate-500 text-sm mt-2 font-medium animate-pulse">Sincronizando perfil e permissões...</p>
         </div>
+      </div>
     );
   }
 
   const isQuotaEnforced = userStatus === 'limit_reached';
-  const disableClassifier = userStatus === 'needs_register'; 
+  const disableClassifier = userStatus === 'needs_register';
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
@@ -160,52 +127,48 @@ const AppContent: React.FC = () => {
         <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} onCloseMobile={() => setIsSidebarOpen(false)} />
       </div>
       {isSidebarOpen && (<div className="fixed inset-0 z-20 bg-slate-900/50 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>)}
-      
+
       <div className="flex-1 flex flex-col min-w-0 md:pl-64">
         <header className="md:hidden h-16 flex items-center justify-between p-4 border-b border-slate-200 bg-white shadow-sm z-10">
-           <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-slate-100"><Menu className="h-6 w-6" /></button>
-           <span className="text-xl font-bold text-slate-900">{getTitle()}</span>
-           <div className="w-6 h-6"></div>
+          <button onClick={() => setIsSidebarOpen(true)} className="text-slate-600 hover:text-indigo-600 transition-colors p-1 rounded-md hover:bg-slate-100"><Menu className="h-6 w-6" /></button>
+          <span className="text-xl font-bold text-slate-900">{getTitle()}</span>
+          <div className="w-6 h-6"></div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-           {disableClassifier && !showModal && !showLimitMessage && (
-             <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
-                <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">Clique para Registrar e Acessar</button>
-             </div>
-           )}
+          {disableClassifier && !showModal && !showLimitMessage && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+              <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">Clique para Registrar e Acessar</button>
+            </div>
+          )}
 
-           <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto">
             <div className="mb-6 hidden md:block">
               <h2 className="text-2xl font-bold text-slate-900 capitalize">{getTitle()}</h2>
             </div>
 
             {currentTab === TabView.DASHBOARD && (
-                <Dashboard 
-                    data={history} 
-                    onLoadHistory={handleLoadHistory} // <--- NOVA PROP
-                />
+              <Dashboard />
             )}
             {currentTab === TabView.CLASSIFIER && (
-              <Classifier onSave={addRecord} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isQuotaEnforced={isQuotaEnforced} />
+              <Classifier onSave={handleClassificationSuccess} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isQuotaEnforced={isQuotaEnforced} />
             )}
             {currentTab === TabView.BATCH && (
-              <BatchProcessor 
-                 onBatchComplete={addBatchRecords}
-                 onShowRegister={handleShowRegister}
-                 onShowLimitReached={handleShowLimitReached}
-                 isPremium={isPremiumUser}
-                 // --- ALTERAÇÃO 2: Passando a função de navegação ---
-                 onGoToDashboard={goToDashboard}
+              <BatchProcessor
+                onBatchComplete={handleClassificationSuccess}
+                onShowRegister={handleShowRegister}
+                onShowLimitReached={handleShowLimitReached}
+                isPremium={isPremiumUser}
+                onGoToDashboard={goToDashboard}
               />
             )}
             {currentTab === TabView.DICTIONARY && <Dictionary />}
-           </div>
+          </div>
         </main>
       </div>
-      
+
       {showModal && userStatus === 'needs_register' && !showLimitMessage && (
-        <QuotaModal onRegister={handleRegisterSuccess} onClose={() => {}} showContactMessage={false} isRegistering={isRegisteringBackend} canClose={false} />
+        <QuotaModal onRegister={handleRegisterSuccess} onClose={() => { }} showContactMessage={false} isRegistering={isRegisteringBackend} canClose={false} />
       )}
       {showLimitMessage && (
         <QuotaModal onRegister={handleRegisterSuccess} onClose={() => setShowLimitMessage(false)} showContactMessage={true} isRegistering={false} canClose={true} />
