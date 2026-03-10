@@ -1,4 +1,4 @@
-// src/services/aiService.ts (Versão Final Completa e Corrigida)
+// src/services/aiService.ts (Versão Final Completa e Corrigida - Trigger deploy)
 import { FalhaInput, RespostaAPI } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 export interface UserCredentials {
     email: string | null;
     name: string | null;
-    isPremium: boolean; 
+    isPremium: boolean;
 }
 
 interface RegisterResponse {
@@ -67,7 +67,7 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
     if (response.status === 403) {
         throw new Error("QUOTA_EXCEEDED");
     }
-    
+
     if (!response.ok) {
         throw new Error(`Erro na API: ${response.statusText}`);
     }
@@ -79,7 +79,7 @@ export const classificarFalha = async (dados: FalhaInput): Promise<RespostaAPI> 
 // --- 3. SALVAR REGISTRO ÚNICO (Banco de Dados) ---
 export const salvarRegistroNoBackend = async (record: any): Promise<void> => {
     const { email } = getUserId();
-    
+
     const payload = {
         user_email: email || "anonimo",
         tag: String(record.tag || "N/A"),
@@ -141,7 +141,7 @@ export const salvarLoteNoBackend = async (records: any[]): Promise<void> => {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
-            const errorMsg = errorData?.detail 
+            const errorMsg = errorData?.detail
                 ? (typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail))
                 : `Erro HTTP ${response.status}`;
             throw new Error(errorMsg);
@@ -175,12 +175,12 @@ export const carregarHistoricoDoBackend = async (): Promise<any[]> => {
             tag: item.tag,
             description: item.description,
             impact: item.impact,
-            impactCode: item.impact, 
-            
+            impactCode: item.impact,
+
             mode: item.mode_desc,
             modeCode: item.mode_code,
             confidenceMode: 0, // Banco simplificado não salva confianças individuais
-            
+
             mechanism: item.mech_desc,
             mechanismCode: item.mech_code,
             confidenceMech: 0,
