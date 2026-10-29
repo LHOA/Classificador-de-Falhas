@@ -1,0 +1,24 @@
+# Dependências e builds
+node_modules/
+dist/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Banco local e artefatos de execução
+*.db
+*.sqlite3
+*.log
+
+# Ambiente
+.env
+.env.local
+
+# Editores / sistema
+.vscode/
+.idea/
+.DS_Store
+
+# Material de apresentação (não faz parte da aplicação)
+*.pptx

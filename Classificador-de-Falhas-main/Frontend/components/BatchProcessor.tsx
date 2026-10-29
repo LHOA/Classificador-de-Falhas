@@ -2,26 +2,20 @@ import React, { useState, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   FileSpreadsheet, Upload, Download, Play, AlertCircle, CheckCircle2,
-  Loader2, Lock, FileText, BarChart3, HardDriveUpload, AlertTriangle, CloudUpload, LayoutDashboard
+  Loader2, FileText, BarChart3, HardDriveUpload, CloudUpload, LayoutDashboard
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { classificarFalha, getUserId, salvarLoteNoBackend } from '../services/aiService';
+import { classificarFalha, salvarLoteNoBackend } from '../services/aiService';
 import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-const FREE_BATCH_LIMIT = 20;
-
 interface BatchProcessorProps {
   onBatchComplete: () => void;
-  onShowRegister: () => void;
-  onShowLimitReached: () => void;
-  isPremium: boolean;
   // Nova prop para navegação
   onGoToDashboard: () => void;
 }
 
-const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShowRegister, onShowLimitReached, isPremium, onGoToDashboard }) => {
+const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onGoToDashboard }) => {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
 
@@ -36,9 +30,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
   const [isSaving, setIsSaving] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const { email: userEmailOnLoad } = getUserId();
-  const isEffectivelyRegistered = !!userEmailOnLoad;
 
   const getLabel = (map: any, code: string) => {
     if (!map || !code) return code;
@@ -73,49 +64,25 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
 
   const processBatch = async () => {
     if (previewData.length === 0) return;
-    const { email: user_email, name: user_name } = getUserId();
-    if (!user_email) { onShowRegister(); return; }
-
     setProcessing(true); setProgress(0); setIsSaving(false);
     const results: FailureRecord[] = [];
-    let successCount = 0; let failCount = 0; let skippedCount = 0; let hitBackendLimit = false;
-
-    if (!isPremium) {
-      try {
-        const batchCheckResponse = await fetch(`${API_URL}/batch-process`, {
-          method: "POST", headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_email, batch_size: previewData.length })
-        });
-        if (batchCheckResponse.status === 403) { onShowLimitReached(); setProcessing(false); return; }
-        if (!batchCheckResponse.ok) throw new Error("Erro ao reservar quota.");
-      } catch (err: any) { setError(err.message || "Erro de API ao iniciar."); setProcessing(false); return; }
-    }
+    let successCount = 0; let failCount = 0;
 
     for (let i = 0; i < previewData.length; i++) {
       const row = previewData[i];
-
-      if (!isPremium && i >= FREE_BATCH_LIMIT) {
-        results.push({
-          id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact),
-          modeCode: 'LIMIT', mode: t('qm_limit_title'), confidenceMode: 0, mechanismCode: 'LIMIT', mechanism: t('qm_btn_contact_dev'), confidenceMech: 0, detectionCode: 'LIMIT', detection: t('qm_limit_text'), confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date()
-        });
-        skippedCount++; setProgress(Math.round(((i + 1) / previewData.length) * 100)); continue;
-      }
 
       try {
         const aiRes: RespostaAPI = await classificarFalha({ tag: row.tag, descricao: row.description, impacto: row.impact });
         const record: FailureRecord = { id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: row.impact, impact: getLabel(MAP_IMPACTO, row.impact), modeCode: aiRes.modo[0].codigo, mode: getLabel(MAP_MODE, aiRes.modo[0].codigo), confidenceMode: aiRes.modo[0].confianca, mechanismCode: aiRes.mecanismo[0].codigo, mechanism: getLabel(MAP_MECH, aiRes.mecanismo[0].codigo), confidenceMech: aiRes.mecanismo[0].confianca, detectionCode: aiRes.deteccao[0].codigo, detection: getLabel(MAP_DET, aiRes.deteccao[0].codigo), confidenceDet: aiRes.deteccao[0].confianca, confidence: aiRes.modo[0].confianca, status: 'IA', timestamp: new Date() };
         results.push(record); successCount++;
       } catch (err: any) {
-        if (err.message === "QUOTA_EXCEEDED") { hitBackendLimit = true; break; }
         failCount++; results.push({ id: Date.now() + i.toString(), tag: row.tag, description: row.description, impactCode: 'X', impact: 'Erro', modeCode: 'ERR', mode: 'Erro API', confidenceMode: 0, mechanismCode: 'ERR', mechanism: 'Erro', confidenceMech: 0, detectionCode: 'ERR', detection: 'Erro', confidenceDet: 0, confidence: 0, status: 'IA', timestamp: new Date() });
       }
-      if (hitBackendLimit) break;
       setProgress(Math.round(((i + 1) / previewData.length) * 100));
     }
 
-    setStats({ success: successCount, fail: failCount, skipped: skippedCount });
-    setProcessedData(results); setProcessing(false); onBatchComplete(); // Atualiza o histórico global, mas não muda a aba
-    if (skippedCount > 0 || hitBackendLimit) { onShowLimitReached(); }
+    setStats({ success: successCount, fail: failCount, skipped: 0 });
+    setProcessedData(results); setProcessing(false); onBatchComplete();
   };
 
   const downloadResults = () => {
@@ -173,11 +140,7 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
               <div className="flex gap-3">
                 <button onClick={() => setFile(null)} className="px-4 py-2 text-slate-500 hover:text-red-600 rounded-lg transition-colors font-medium">Trocar</button>
                 {!processing && processedData.length === 0 && (
-                  isEffectivelyRegistered ? (
                     <button onClick={processBatch} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><Play className="w-4 h-4" /> Iniciar</button>
-                  ) : (
-                    <button onClick={onShowRegister} className="px-6 py-2 bg-red-500 text-white font-bold rounded-lg shadow-lg flex items-center gap-2"><Lock className="w-4 h-4" /> Registro</button>
-                  )
                 )}
               </div>
             </div>
@@ -193,7 +156,6 @@ const BatchProcessor: React.FC<BatchProcessorProps> = ({ onBatchComplete, onShow
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-indigo-100 text-indigo-600 rounded-lg"><BarChart3 className="w-6 h-6" /></div><div><p className="text-xs uppercase font-bold text-slate-400">Total</p><p className="text-2xl font-bold text-slate-800">{processedData.length}</p></div></div>
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-emerald-100 text-emerald-600 rounded-lg"><CheckCircle2 className="w-6 h-6" /></div><div><p className="text-xs uppercase font-bold text-slate-400">Sucesso</p><p className="text-2xl font-bold text-slate-800">{stats.success}</p></div></div>
-            {stats.skipped > 0 && (<div className="bg-white p-5 rounded-xl border border-amber-200 shadow-sm flex items-center gap-4"><div className="p-3 bg-amber-100 text-amber-600 rounded-lg"><AlertTriangle className="w-6 h-6" /></div><div><p className="text-xs uppercase font-bold text-slate-400">Limite</p><p className="text-2xl font-bold text-slate-800">{stats.skipped}</p></div></div>)}
 
             {/* BOTÕES FINAIS */}
             <div className="flex flex-col gap-2">

@@ -1,98 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2, Menu } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Classifier from './components/Classifier';
 import BatchProcessor from './components/BatchProcessor';
 import Dictionary from './components/Dictionary';
-import QuotaModal from './components/QuotaModal';
-import { FailureRecord, TabView } from './types';
+import { TabView } from './types';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-import { registrarUsuarioNoBackend, getUserId, carregarHistoricoDoBackend } from './services/aiService';
-
-const GLOBAL_USAGE_LIMIT = 30;
-const MINIMUM_LOAD_TIME = 2500;
-
-type UserStatus = 'needs_register' | 'registered' | 'limit_reached';
 
 const AppContent: React.FC = () => {
   const { t } = useLanguage();
-  const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
-
-  const [userStatus, setUserStatus] = useState<UserStatus>('needs_register');
-  const [showModal, setShowModal] = useState(true);
-  const [showLimitMessage, setShowLimitMessage] = useState(false);
-  const [isPremiumUser, setIsPremiumUser] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRegisteringBackend, setIsRegisteringBackend] = useState(false);
+  const [currentTab, setCurrentTab] = useState<TabView>(TabView.CLASSIFIER);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  useEffect(() => {
-    const checkUserStatusOnLoad = async () => {
-      setIsLoading(true);
-      const timerPromise = new Promise(resolve => setTimeout(resolve, MINIMUM_LOAD_TIME));
-      const { email, name, isPremium: initialPremiumState } = getUserId();
-
-      setIsPremiumUser(initialPremiumState);
-
-      if (email && name) {
-        try {
-          const response = await registrarUsuarioNoBackend(email, name);
-          setIsPremiumUser(response.is_premium);
-          localStorage.setItem('user_premium', response.is_premium.toString());
-
-          if (response.is_premium) {
-            setUserStatus('registered'); setShowLimitMessage(false);
-          } else if (response.total_uses >= GLOBAL_USAGE_LIMIT) {
-            setUserStatus('limit_reached'); setShowLimitMessage(true);
-          } else {
-            setUserStatus('registered'); setShowLimitMessage(false);
-          }
-          setShowModal(false);
-        } catch (error) {
-          console.error("Erro de sync:", error);
-          if (initialPremiumState) { setUserStatus('registered'); setShowModal(false); }
-          else { setUserStatus('needs_register'); setShowModal(true); }
-        } finally {
-          await timerPromise; setIsLoading(false);
-        }
-      } else {
-        setUserStatus('needs_register'); setShowModal(true);
-        await timerPromise; setIsLoading(false);
-      }
-    };
-    checkUserStatusOnLoad();
-  }, []);
-
-  const handleShowRegister = () => {
-    if (userStatus === 'limit_reached') { setShowLimitMessage(true); }
-    else { setUserStatus('needs_register'); setShowModal(true); }
-  };
-  const handleShowLimitReached = () => { setUserStatus('limit_reached'); setShowLimitMessage(true); };
-
-  const handleRegisterSuccess = async (email: string, name: string) => {
-    setIsRegisteringBackend(true);
-    try {
-      const response = await registrarUsuarioNoBackend(email, name);
-      localStorage.setItem('user_email', email);
-      localStorage.setItem('user_name', name);
-      localStorage.setItem('user_premium', response.is_premium.toString());
-      setIsPremiumUser(response.is_premium);
-
-      if (response.is_premium) { setUserStatus('registered'); setShowLimitMessage(false); }
-      else if (response.total_uses >= GLOBAL_USAGE_LIMIT) { setUserStatus('limit_reached'); setShowLimitMessage(true); }
-      else { setUserStatus('registered'); setShowLimitMessage(false); }
-      setShowModal(false);
-    } catch (error) { alert("Erro ao conectar com o servidor."); }
-    finally { setIsRegisteringBackend(false); }
-  };
-
-  const handleClassificationSuccess = () => {
-    setCurrentTab(TabView.DASHBOARD);
-  };
-
-  // --- NOVA FUNÇÃO: Navegação manual ---
-  const goToDashboard = () => setCurrentTab(TabView.DASHBOARD);
 
   const getTitle = () => {
     switch (currentTab) {
@@ -104,27 +23,10 @@ const AppContent: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen bg-white items-center justify-center overflow-hidden">
-        <div className="text-center animate-in fade-in duration-1000 flex flex-col items-center">
-          <div className="w-64 h-64 mb-6 relative rounded-2xl overflow-hidden shadow-2xl border border-slate-100 p-4">
-            <img src="/loading.gif" alt="Loading" className="w-full h-full object-contain" />
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Failure Map</h2>
-          <p className="text-slate-500 text-sm mt-2 font-medium animate-pulse">Sincronizando perfil e permissões...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const isQuotaEnforced = userStatus === 'limit_reached';
-  const disableClassifier = userStatus === 'needs_register';
-
   return (
     <div className="flex h-screen bg-slate-50 font-sans overflow-hidden animate-in fade-in">
       <div className={`fixed inset-y-0 left-0 z-30 w-full max-w-[280px] md:max-w-none md:w-64 bg-slate-900 flex flex-col transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
-        <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} isPremium={isPremiumUser} onCloseMobile={() => setIsSidebarOpen(false)} />
+        <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} onCloseMobile={() => setIsSidebarOpen(false)} />
       </div>
       {isSidebarOpen && (<div className="fixed inset-0 z-20 bg-slate-900/50 md:hidden" onClick={() => setIsSidebarOpen(false)}></div>)}
 
@@ -136,43 +38,25 @@ const AppContent: React.FC = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-          {disableClassifier && !showModal && !showLimitMessage && (
-            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
-              <button onClick={() => setShowModal(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold shadow-lg animate-bounce">Clique para Registrar e Acessar</button>
-            </div>
-          )}
-
           <div className="max-w-7xl mx-auto">
             <div className="mb-6 hidden md:block">
               <h2 className="text-2xl font-bold text-slate-900 capitalize">{getTitle()}</h2>
             </div>
 
-            {currentTab === TabView.DASHBOARD && (
-              <Dashboard />
-            )}
+            {currentTab === TabView.DASHBOARD && <Dashboard />}
             {currentTab === TabView.CLASSIFIER && (
-              <Classifier onSave={handleClassificationSuccess} onShowRegister={handleShowRegister} onShowLimitReached={handleShowLimitReached} isQuotaEnforced={isQuotaEnforced} />
+              <Classifier onSave={() => setCurrentTab(TabView.DASHBOARD)} />
             )}
             {currentTab === TabView.BATCH && (
               <BatchProcessor
-                onBatchComplete={handleClassificationSuccess}
-                onShowRegister={handleShowRegister}
-                onShowLimitReached={handleShowLimitReached}
-                isPremium={isPremiumUser}
-                onGoToDashboard={goToDashboard}
+                onBatchComplete={() => setCurrentTab(TabView.DASHBOARD)}
+                onGoToDashboard={() => setCurrentTab(TabView.DASHBOARD)}
               />
             )}
             {currentTab === TabView.DICTIONARY && <Dictionary />}
           </div>
         </main>
       </div>
-
-      {showModal && userStatus === 'needs_register' && !showLimitMessage && (
-        <QuotaModal onRegister={handleRegisterSuccess} onClose={() => { }} showContactMessage={false} isRegistering={isRegisteringBackend} canClose={false} />
-      )}
-      {showLimitMessage && (
-        <QuotaModal onRegister={handleRegisterSuccess} onClose={() => setShowLimitMessage(false)} showContactMessage={true} isRegistering={false} canClose={true} />
-      )}
     </div>
   );
 };

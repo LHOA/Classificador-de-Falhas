@@ -2,25 +2,34 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Instala dependências do sistema
-RUN apt-get update && apt-get install -y \
+# Dependências de sistema
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copia requirements primeiro
+# Dependências Python
 COPY requirements.txt .
-
-# Instala bibliotecas
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Baixa stopwords do NLTK (necessário após instalar nltk)
-RUN python -m nltk.downloader stopwords
+# Stopwords do NLTK em caminho legível por qualquer usuário
+ENV NLTK_DATA=/usr/local/share/nltk_data
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data stopwords
 
-# Copia o código da API e o modelo
+# Código e modelo
 COPY . .
 
-# Comando para rodar a API (Uvicorn)
-# O host 0.0.0.0 permite acesso externo
-# A variável PORT é injetada pelo Railway
-CMD sh -c 'uvicorn api:app --host 0.0.0.0 --port ${PORT:-8000}'
+# Executa como usuário sem privilégios
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /app/data \
+    && chown -R appuser:appuser /app
+USER appuser
+
+ENV PORT=8000
+EXPOSE 8000
+
+# Healthcheck simples (o mesmo endpoint usado em produção)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1
+
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

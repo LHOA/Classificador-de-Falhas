@@ -1,12 +1,30 @@
 {
-  "name": "iso-14224-ai-classifier",
+  "name": "failure-map",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Classificador open source de falhas industriais (modo, mecanismo e método de detecção) com taxonomia baseada na ISO 14224 — alternativa local e determinística ao uso de LLMs.",
+  "license": "MIT",
+  "author": "Luis Henrique Oliveira <luishenrique240@gmail.com> (https://www.linkedin.com/in/luishenriqueifma/)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LHOA/Classificador-de-Falhas.git"
+  },
+  "keywords": [
+    "iso-14224",
+    "failure-analysis",
+    "maintenance",
+    "reliability",
+    "xgboost",
+    "nlp",
+    "fastapi",
+    "react"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.21",

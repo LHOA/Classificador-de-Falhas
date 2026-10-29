@@ -1,15 +1,13 @@
 // src/components/Sidebar.tsx
 import React from 'react';
 // --- CORREÇÃO AQUI: Adicionado 'X' na lista de imports ---
-import { LayoutDashboard, BrainCircuit, Database, Layers, UserCircle2, Crown, Globe, ExternalLink, X } from 'lucide-react';
+import { LayoutDashboard, BrainCircuit, Database, Layers, UserCircle2, Code2, Globe, ExternalLink, X } from 'lucide-react';
 import { TabView } from '../types';
 import { useLanguage } from '../contexts/LanguageContext';
-import { getUserId } from '../services/aiService';
 
 interface SidebarProps {
   currentTab: TabView;
   onTabChange: (tab: TabView) => void;
-  isPremium: boolean;
   onCloseMobile: () => void;
 }
 
@@ -20,11 +18,9 @@ const navItems = (t: (key: string) => string) => [
   { icon: Database, label: t('nav_dictionary'), tab: TabView.DICTIONARY },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, onCloseMobile }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, onCloseMobile }) => {
   const { t, language, setLanguage } = useLanguage();
-  const { name } = getUserId();
-  const userName = name || 'Visitante Anônimo';
-  
+
   const DEVELOPER_LINKEDIN = "https://www.linkedin.com/in/luishenriqueifma/";
 
   const handleTabChange = (tab: TabView) => {
@@ -55,26 +51,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, isPremium, o
             </button>
         </div>
         
-        {/* Perfil */}
+        {/* Perfil / projeto */}
         <div className="flex items-center gap-3 p-2 bg-slate-800/50 rounded-xl">
             <div className="relative">
                 <UserCircle2 className="w-8 h-8 text-slate-400" />
-                {isPremium && (
-                    <div className="absolute -top-1 -right-1 bg-slate-900 rounded-full p-0.5">
-                        <Crown className="w-3 h-3 text-amber-400" fill="currentColor" />
-                    </div>
-                )}
+                <div className="absolute -top-1 -right-1 bg-slate-900 rounded-full p-0.5">
+                    <Code2 className="w-3 h-3 text-emerald-400" />
+                </div>
             </div>
             <div className="flex-1 overflow-hidden">
-                <p className="font-bold truncate text-sm">{userName}</p>
-                
-                {isPremium ? (
-                    <p className="text-xs text-amber-400 font-bold flex items-center gap-1">
-                        <Crown className="w-3 h-3" fill="currentColor" /> Acesso Ilimitado
-                    </p>
-                ) : (
-                    <p className="text-xs text-slate-500 truncate">Usuário Básico</p>
-                )}
+                <p className="font-bold truncate text-sm">Open Source</p>
+                <p className="text-xs text-emerald-400 font-bold flex items-center gap-1">
+                    <Code2 className="w-3 h-3" /> Sem login · sem cota
+                </p>
             </div>
         </div>
 

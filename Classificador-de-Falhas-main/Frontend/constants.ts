@@ -51,6 +51,7 @@ export const MAP_MODE: Record<string, { pt: string, en: string }> = {
   'NOI': { pt: 'Ruído', en: 'Noise' },
   'SPO': { pt: 'Operação espúria', en: 'Spurious operation' },
   'UNK': { pt: 'Desconhecido', en: 'Unknown' },
+  'UNS': { pt: 'Não especificado', en: 'Unspecified' },
   'SHH': { pt: 'Nível de alarme alto espúrio', en: 'Spurious high alarm level' },
   'NOO': { pt: 'Sem saída', en: 'No output' },
   'FRO': { pt: 'Falha ao rotacionar', en: 'Failure to rotate' },
@@ -137,7 +138,8 @@ export const MAP_MECH: Record<string, { pt: string, en: string }> = {
   '6.2': { pt: 'Causas combinadas', en: 'Combined causes' },
   '6.3': { pt: 'Outro', en: 'Other' },
   '6.4': { pt: 'Desconhecido', en: 'Unknown' },
-  '6.5': { pt: 'Desvio de projeto', en: 'Deviation from design' }
+  "6.5": { pt: "Desvio de projeto", en: "Deviation from design" },
+  "11.0": { pt: "Dano na capa externa (rótulo 11.0 do dataset)", en: "Damage to outer sheath (dataset label 11.0)" },
 };
 
 export const MAP_DET: Record<string, { pt: string, en: string }> = {

@@ -1,7 +1,7 @@
 // src/components/Classifier.tsx (Versão Final com Salvamento no Banco de Dados)
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BrainCircuit, Send, AlertTriangle, Sparkles, ArrowRight, Eraser, ExternalLink } from 'lucide-react';
+import { BrainCircuit, Send, AlertTriangle, Sparkles, ArrowRight, Eraser } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 // IMPORTANTE: Importar a função de salvar
 import { classificarFalha, salvarRegistroNoBackend } from '../services/aiService';
@@ -9,22 +9,17 @@ import { FailureRecord, RespostaAPI } from '../types';
 import { MAP_MODE, MAP_MECH, MAP_DET, MAP_IMPACTO } from '../constants';
 import ClassificationResult from './ClassificationResult';
 
-const LINKEDIN_URL = "https://www.linkedin.com/in/luis-henrique-oliveira-reliability/";
-
 interface ClassifierProps {
   onSave: () => void;
-  onShowRegister: () => void;
-  onShowLimitReached: () => void;
-  isQuotaEnforced: boolean;
 }
 
-const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowLimitReached, isQuotaEnforced }) => {
+const Classifier: React.FC<ClassifierProps> = ({ onSave }) => {
   const { t, language } = useLanguage();
   const queryClient = useQueryClient();
 
   const [tag, setTag] = useState('N/A');
   const [description, setDescription] = useState('');
-  const [impact, setImpact] = useState('X');
+  const [impact, setImpact] = useState('S');
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RespostaAPI | null>(null);
@@ -34,7 +29,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
   const handleClear = () => {
     setTag('N/A');
     setDescription('');
-    setImpact('X');
+    setImpact('S');
     setResult(null);
     setSelectedResults(null);
     setError(null);
@@ -61,9 +56,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
 
     } catch (err: any) {
       console.error("Erro na classificação:", err);
-      if (err.message === 'QUOTA_EXCEEDED') {
-        onShowLimitReached();
-      } else if (err.message === 'CONNECTION_ERROR') {
+      if (err.message === 'CONNECTION_ERROR') {
         setError(t('error_connection'));
       } else {
         setError(t('error_generic_api'));
@@ -160,29 +153,7 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
             {t('classifier_form_title')}
           </h3>
 
-          {isQuotaEnforced && (
-            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-6 rounded-r-xl shadow-sm animate-in fade-in duration-300">
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
-                <div className="p-2 bg-amber-100 text-amber-600 rounded-full flex-shrink-0">
-                  <AlertTriangle className="w-6 h-6" />
-                </div>
-                <div className="flex-1 text-center md:text-left">
-                  <h4 className="text-base font-bold text-amber-800 mb-1">{t('qm_limit_title')}</h4>
-                  <p className="text-sm text-amber-700 mb-3 leading-relaxed" dangerouslySetInnerHTML={{ __html: t('classifier_quota_exceeded') }}></p>
-                  <a
-                    href={LINKEDIN_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-colors shadow-sm"
-                  >
-                    {t('classifier_btn_contact_dev')} <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleClassify} className={`space-y-4 ${isQuotaEnforced ? 'opacity-50 pointer-events-none filter grayscale' : ''}`}>
+          <form onSubmit={handleClassify} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-1">
                 <label className="block text-xs font-bold text-slate-700 mb-1">Tag (ID)</label>
@@ -235,10 +206,9 @@ const Classifier: React.FC<ClassifierProps> = ({ onSave, onShowRegister, onShowL
               </button>
               <button
                 type="submit"
-                disabled={loading || isQuotaEnforced}
+                disabled={loading}
                 className={`flex-1 bg-indigo-600 text-white font-bold py-2.5 px-4 rounded-xl hover:bg-indigo-700 transition-transform shadow-md flex items-center justify-center gap-2 text-sm
                         ${loading ? 'opacity-80 cursor-wait' : 'hover:scale-[1.02] active:scale-[0.98]'}
-                        ${isQuotaEnforced ? 'bg-slate-400 cursor-not-allowed' : ''}
                     `}
               >
                 {loading ? (
