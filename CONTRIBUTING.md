@@ -23,7 +23,7 @@ pequenas e verificáveis a grandes reescritas.
 - **Correções de taxonomia ISO 14224** com a referência da cláusula/tabela.
 - **Bases de falhas anonimizadas** para avaliação e retreino.
 - **Normalização de texto** (acentos, abreviações, gírias de campo) com medição de impacto.
-- **Testes** — o projeto ainda não tem suíte automatizada; qualquer começo ajuda.
+- **Testes** — contribuições com suíte automatizada são especialmente valiosas; hoje a verificação é `npm run typecheck`, `npm run build` e os curls de smoke test.
 - **Integrações** com CMMS (SAP PM, Maximo) para tirar o CSV do meio do caminho.
 
 ## O que evitar
