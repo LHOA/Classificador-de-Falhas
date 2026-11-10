@@ -1,0 +1,11 @@
+Nota,Tag,Descrição,Gabarito,XGBoost,Laya (zero-shot),Claude Haiku,GPT-6 Luna,DeepSeek,Qwen Flash,Qwen Max
+0214,válvula_de_controle_,Válvula de controle após parada programada apres…,4.4 · Tensão defeituosa,Tensão defeituosa ✓,Isolamento ✗,Fadiga ✗,Fadiga ✗,Fadiga ✗,Fadiga ✗,Fadiga ✗
+1993,quebra_peca_nova,Eixo novo quebrou prematuramente. A análise meta…,6.4 · Desconhecido,Desconhecido ✓,Suporte ✗,Fadiga ✗,Quebra/ruptura ✗,Fadiga ✗,Quebra/ruptura ✗,Quebra/ruptura ✗
+2767,vaso_pressao_corrosa,Ruptura do vaso. Perda de espessura por corrosão…,2.2 · Corrosão interna,Corrosão externa ✗,Travamento ✗,Corrosão interna ✓,Corrosão interna ✓,Corrosão interna ✓,Corrosão interna ✓,Corrosão interna ✓
+3154,sensor_nivel_espuma,Sensor de nível ultrassônico indicando nível bai…,5.3 · Influência externa,Influência externa ✓,Corrosão externa ✗,Sinal defeituoso ✗,Sinal defeituoso ✗,Sinal defeituoso ✗,Sinal defeituoso ✗,Sinal defeituoso ✗
+3271,trava_emperrada,Trava elétrica não abre. Mecanismo emperrado por…,5.1 · Entupimento,Entupimento ✓,Suporte ✗,Travamento ✗,Travamento ✗,Travamento ✗,Travamento ✗,Travamento ✗
+3746,valvula_diafragma_tr,"Válvula de diafragma não abre. O diafragma ""colo…",5.9 · Fora pressão/temp,Fora pressão/temp ✓,Travamento ✗,Travamento ✗,Travamento ✗,Travamento ✗,Travamento ✗,Travamento ✗
+5165,CONECTOR-SOLTO-VIBRA,Perda intermitente de sinal. Conector do cabo de…,3.2 · Sem sinal,Sem sinal ✓,Travamento ✗,Afrouxamento ✗,Afrouxamento ✗,Afrouxamento ✗,Afrouxamento ✗,Afrouxamento ✗
+5173,MEDIDOR-VAZAO-RUIDO,Sinal de vazão com ruído elétrico. Falta de ater…,3.3 · Sinal defeituoso,Falha de. ✗,Isolamento ✗,Falha de. ✗,Falha de. ✗,Falha de. ✗,Falha de. ✗,Falha de. ✗
+5293,BOMBA-ROTOR-CL-05,Rotor corroído. Bombeamento de água do mar com m…,2.14 · Cloretos,Cloretos ✓,Suporte ✗,Corrosão interna ✗,Corrosão interna ✗,Corrosão interna ✗,Corrosão interna ✗,Corrosão interna ✗
+5892,SENSOR-CORROSAO-POCO,Sem dados de corrosão. Probe consumida ou falha.,2.17 · Degradação natural,Degradação natural ✓,Suporte ✗,Degradação natural ✓,Degradação natural ✓,Sem sinal ✗,Sem sinal ✗,Desgaste ✗

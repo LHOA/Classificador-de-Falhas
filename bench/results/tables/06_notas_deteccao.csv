@@ -1,0 +1,11 @@
+Nota,Tag,Descrição,Gabarito,XGBoost,Laya (zero-shot),Claude Haiku,GPT-6 Luna,DeepSeek,Qwen Flash,Qwen Max
+0383,forno_industrial_85,Forno industrial durante operação contínua entre…,7 · Observ. casual,Observ. casual ✓,Monitor. contínuo ✗,Manut. corretiva ✗,Observ. casual ✓,Monitor. contínuo ✗,Interf. produção ✗,Monitor. contínuo ✗
+1999,termostato_descalibr,Termostato atuando antes da temperatura. A análi…,2 · Teste funcional,Teste funcional ✓,Inspeção ✗,Teste funcional ✓,Observ. casual ✗,Monitor. contínuo ✗,Monitor. contínuo ✗,Monitor. contínuo ✗
+2457,mangueira_queimador_,Mangueira de óleo combustível vazando. Borracha …,3 · Inspeção,Inspeção ✓,Inspeção ✓,Inspeção ✓,Observ. casual ✗,Observ. casual ✗,Inspeção ✓,Observ. casual ✗
+3456,mancal_rolamento_fal,Mancal quente. Graxeira quebrada impediu lubrifi…,4 · Monitor. periódico,Monitor. periódico ✓,Manut. periódica ✗,Observ. casual ✗,Observ. casual ✗,Observ. casual ✗,Monitor. periódico ✓,Observ. casual ✗
+3995,secador_rotativo_vib,Secador vibrando. Rolos de apoio desalinhados ou…,5 · Monitor. contínuo,Monitor. contínuo ✓,Teste funcional ✗,Monitor. periódico ✗,Observ. casual ✗,Observ. casual ✗,Monitor. contínuo ✓,Observ. casual ✗
+4314,painel_contator_corr,"Ao trocar o contator queimado, viu-se que o tril…",8 · Manut. corretiva,Manut. corretiva ✓,Manut. corretiva ✓,Manut. corretiva ✓,Manut. corretiva ✓,Manut. corretiva ✓,Manut. corretiva ✓,Manut. corretiva ✓
+5198,OPERACAO-ERRO-MANUAL,Válvula fechada indevidamente. Erro operacional …,6 · Interf. produção,Interf. produção ✓,Manut. corretiva ✗,Observ. casual ✗,Interf. produção ✓,Observ. casual ✗,Interf. produção ✓,Interf. produção ✓
+5303,SENSOR-PRESSAO-SEM-S,Pressão indica zero. Conector do sensor solto.,5 · Monitor. contínuo,Monitor. contínuo ✓,Inspeção ✗,Monitor. contínuo ✓,Interf. produção ✗,Interf. produção ✗,Monitor. contínuo ✓,Monitor. contínuo ✓
+6399,ATUADOR-ELETRICO-CAP,Válvula motorizada não parte. Capacitor de parti…,9 · Sob demanda,Manut. corretiva ✗,Observ. casual ✗,Sob demanda ✓,Sob demanda ✓,Sob demanda ✓,Sob demanda ✓,Sob demanda ✓
+6647,CARREGADEIRA-PNEU-CO,Pneu dianteiro com corte lateral profundo. Rocha…,6 · Interf. produção,Interf. produção ✓,Inspeção ✗,Inspeção ✗,Interf. produção ✓,Inspeção ✗,Observ. casual ✗,Observ. casual ✗

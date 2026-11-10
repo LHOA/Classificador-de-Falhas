@@ -1,0 +1,362 @@
+{
+  "ex00214|modo": {
+    "letra": "C",
+    "codigo": "LOP"
+  },
+  "ex00214|mecanismo": {
+    "letra": "C",
+    "codigo": "4.4"
+  },
+  "ex00214|deteccao": {
+    "letra": "A",
+    "codigo": "5"
+  },
+  "ex00383|modo": {
+    "letra": "B",
+    "codigo": "ELP"
+  },
+  "ex00383|mecanismo": {
+    "letra": "C",
+    "codigo": "1.1"
+  },
+  "ex00383|deteccao": {
+    "letra": "C",
+    "codigo": "7"
+  },
+  "ex00443|modo": {
+    "letra": "C",
+    "codigo": "LOP"
+  },
+  "ex00443|mecanismo": {
+    "letra": "C",
+    "codigo": "4.4"
+  },
+  "ex00443|deteccao": {
+    "letra": "A",
+    "codigo": "6"
+  },
+  "ex01008|modo": {
+    "letra": "B",
+    "codigo": "FTS"
+  },
+  "ex01008|mecanismo": {
+    "letra": "C",
+    "codigo": "3.5"
+  },
+  "ex01008|deteccao": {
+    "letra": "B",
+    "codigo": "9"
+  },
+  "ex01636|modo": {
+    "letra": "C",
+    "codigo": "SHH"
+  },
+  "ex01636|mecanismo": {
+    "letra": "A",
+    "codigo": "3.4"
+  },
+  "ex01636|deteccao": {
+    "letra": "B",
+    "codigo": "5"
+  },
+  "ex01993|modo": {
+    "letra": "B",
+    "codigo": "UNK"
+  },
+  "ex01993|mecanismo": {
+    "letra": "C",
+    "codigo": "6.4"
+  },
+  "ex01993|deteccao": {
+    "letra": "A",
+    "codigo": "8"
+  },
+  "ex01999|modo": {
+    "letra": "B",
+    "codigo": "SHH"
+  },
+  "ex01999|mecanismo": {
+    "letra": "B",
+    "codigo": "3.4"
+  },
+  "ex01999|deteccao": {
+    "letra": "A",
+    "codigo": "2"
+  },
+  "ex02172|modo": {
+    "letra": "B",
+    "codigo": "STD"
+  },
+  "ex02172|mecanismo": {
+    "letra": "A",
+    "codigo": "2.15"
+  },
+  "ex02172|deteccao": {
+    "letra": "B",
+    "codigo": "3"
+  },
+  "ex02457|modo": {
+    "letra": "A",
+    "codigo": "ELF"
+  },
+  "ex02457|mecanismo": {
+    "letra": "B",
+    "codigo": "2.17"
+  },
+  "ex02457|deteccao": {
+    "letra": "B",
+    "codigo": "3"
+  },
+  "ex02767|modo": {
+    "letra": "B",
+    "codigo": "EXP"
+  },
+  "ex02767|mecanismo": {
+    "letra": "B",
+    "codigo": "2.2"
+  },
+  "ex02767|deteccao": {
+    "letra": "B",
+    "codigo": "6"
+  },
+  "ex02924|modo": {
+    "letra": "A",
+    "codigo": "021"
+  },
+  "ex02924|mecanismo": {
+    "letra": "B",
+    "codigo": "4.1"
+  },
+  "ex02924|deteccao": {
+    "letra": "C",
+    "codigo": "5"
+  },
+  "ex02961|modo": {
+    "letra": "C",
+    "codigo": "CSF"
+  },
+  "ex02961|mecanismo": {
+    "letra": "C",
+    "codigo": "3.5"
+  },
+  "ex02961|deteccao": {
+    "letra": "A",
+    "codigo": "5"
+  },
+  "ex02983|modo": {
+    "letra": "C",
+    "codigo": "EFA"
+  },
+  "ex02983|mecanismo": {
+    "letra": "C",
+    "codigo": "6.5"
+  },
+  "ex02983|deteccao": {
+    "letra": "C",
+    "codigo": "8"
+  },
+  "ex03154|modo": {
+    "letra": "C",
+    "codigo": "AOL"
+  },
+  "ex03154|mecanismo": {
+    "letra": "A",
+    "codigo": "5.3"
+  },
+  "ex03154|deteccao": {
+    "letra": "B",
+    "codigo": "5"
+  },
+  "ex03271|modo": {
+    "letra": "B",
+    "codigo": "FTL"
+  },
+  "ex03271|mecanismo": {
+    "letra": "A",
+    "codigo": "5.1"
+  },
+  "ex03271|deteccao": {
+    "letra": "A",
+    "codigo": "2"
+  },
+  "ex03456|modo": {
+    "letra": "C",
+    "codigo": "OHE"
+  },
+  "ex03456|mecanismo": {
+    "letra": "A",
+    "codigo": "1.6"
+  },
+  "ex03456|deteccao": {
+    "letra": "C",
+    "codigo": "4"
+  },
+  "ex03746|modo": {
+    "letra": "C",
+    "codigo": "FTO"
+  },
+  "ex03746|mecanismo": {
+    "letra": "B",
+    "codigo": "5.9"
+  },
+  "ex03746|deteccao": {
+    "letra": "C",
+    "codigo": "9"
+  },
+  "ex03871|modo": {
+    "letra": "A",
+    "codigo": "LOO"
+  },
+  "ex03871|mecanismo": {
+    "letra": "A",
+    "codigo": "5.2"
+  },
+  "ex03871|deteccao": {
+    "letra": "B",
+    "codigo": "5"
+  },
+  "ex03995|modo": {
+    "letra": "B",
+    "codigo": "VIB"
+  },
+  "ex03995|mecanismo": {
+    "letra": "C",
+    "codigo": "2.4"
+  },
+  "ex03995|deteccao": {
+    "letra": "B",
+    "codigo": "5"
+  },
+  "ex04314|modo": {
+    "letra": "A",
+    "codigo": "STD"
+  },
+  "ex04314|mecanismo": {
+    "letra": "B",
+    "codigo": "1.5"
+  },
+  "ex04314|deteccao": {
+    "letra": "B",
+    "codigo": "8"
+  },
+  "ex05147|modo": {
+    "letra": "A",
+    "codigo": "FTF"
+  },
+  "ex05147|mecanismo": {
+    "letra": "B",
+    "codigo": "2.16"
+  },
+  "ex05147|deteccao": {
+    "letra": "B",
+    "codigo": "9"
+  },
+  "ex05165|modo": {
+    "letra": "B",
+    "codigo": "NOO"
+  },
+  "ex05165|mecanismo": {
+    "letra": "A",
+    "codigo": "3.2"
+  },
+  "ex05165|deteccao": {
+    "letra": "C",
+    "codigo": "5"
+  },
+  "ex05173|modo": {
+    "letra": "C",
+    "codigo": "ERO"
+  },
+  "ex05173|mecanismo": {
+    "letra": "C",
+    "codigo": "3.3"
+  },
+  "ex05173|deteccao": {
+    "letra": "C",
+    "codigo": "5"
+  },
+  "ex05198|modo": {
+    "letra": "B",
+    "codigo": "NOO"
+  },
+  "ex05198|mecanismo": {
+    "letra": "A",
+    "codigo": "6.3"
+  },
+  "ex05198|deteccao": {
+    "letra": "A",
+    "codigo": "6"
+  },
+  "ex05293|modo": {
+    "letra": "A",
+    "codigo": "STD"
+  },
+  "ex05293|mecanismo": {
+    "letra": "A",
+    "codigo": "2.14"
+  },
+  "ex05293|deteccao": {
+    "letra": "B",
+    "codigo": "3"
+  },
+  "ex05303|modo": {
+    "letra": "A",
+    "codigo": "NOO"
+  },
+  "ex05303|mecanismo": {
+    "letra": "A",
+    "codigo": "3.2"
+  },
+  "ex05303|deteccao": {
+    "letra": "C",
+    "codigo": "5"
+  },
+  "ex05785|modo": {
+    "letra": "A",
+    "codigo": "STC"
+  },
+  "ex05785|mecanismo": {
+    "letra": "A",
+    "codigo": "1.12"
+  },
+  "ex05785|deteccao": {
+    "letra": "C",
+    "codigo": "6"
+  },
+  "ex05892|modo": {
+    "letra": "A",
+    "codigo": "WCL"
+  },
+  "ex05892|mecanismo": {
+    "letra": "A",
+    "codigo": "2.17"
+  },
+  "ex05892|deteccao": {
+    "letra": "A",
+    "codigo": "5"
+  },
+  "ex06399|modo": {
+    "letra": "C",
+    "codigo": "FTF"
+  },
+  "ex06399|mecanismo": {
+    "letra": "C",
+    "codigo": "2.17"
+  },
+  "ex06399|deteccao": {
+    "letra": "A",
+    "codigo": "9"
+  },
+  "ex06647|modo": {
+    "letra": "C",
+    "codigo": "BRD"
+  },
+  "ex06647|mecanismo": {
+    "letra": "B",
+    "codigo": "5.3"
+  },
+  "ex06647|deteccao": {
+    "letra": "B",
+    "codigo": "6"
+  }
+}

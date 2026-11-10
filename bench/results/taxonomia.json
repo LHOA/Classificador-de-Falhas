@@ -1,0 +1,552 @@
+{
+ "modo": [
+  {
+   "codigo": "021",
+   "curto": "Erro módulo I/O"
+  },
+  {
+   "codigo": "AIR",
+   "curto": "Leitura anormal"
+  },
+  {
+   "codigo": "ALR",
+   "curto": "Alarme"
+  },
+  {
+   "codigo": "AOL",
+   "curto": "Saída anormal baixa"
+  },
+  {
+   "codigo": "BRD",
+   "curto": "Quebra/colapso"
+  },
+  {
+   "codigo": "CSF",
+   "curto": "Falha controle"
+  },
+  {
+   "codigo": "CTD",
+   "curto": "Perigo contato"
+  },
+  {
+   "codigo": "DEX",
+   "curto": "Proteção EX"
+  },
+  {
+   "codigo": "DOP",
+   "curto": "Operação atrasada"
+  },
+  {
+   "codigo": "EFA",
+   "curto": "Falha eletrônica"
+  },
+  {
+   "codigo": "ELF",
+   "curto": "Vazamento."
+  },
+  {
+   "codigo": "ELP",
+   "curto": "Vaz.ext.processo"
+  },
+  {
+   "codigo": "ELU",
+   "curto": "Vaz.ext.utilidade"
+  },
+  {
+   "codigo": "ERO",
+   "curto": "Saída errática"
+  },
+  {
+   "codigo": "EXP",
+   "curto": "Sobrepressão"
+  },
+  {
+   "codigo": "FCO",
+   "curto": "Falha conectar"
+  },
+  {
+   "codigo": "FDC",
+   "curto": "Falha desconectar"
+  },
+  {
+   "codigo": "FOV",
+   "curto": "Tensão defeituosa"
+  },
+  {
+   "codigo": "FRO",
+   "curto": "Falha rotacionar"
+  },
+  {
+   "codigo": "FTC",
+   "curto": "Falha fechar"
+  },
+  {
+   "codigo": "FTF",
+   "curto": "Falha funcionar"
+  },
+  {
+   "codigo": "FTI",
+   "curto": "Falha função"
+  },
+  {
+   "codigo": "FTL",
+   "curto": "Falha travar"
+  },
+  {
+   "codigo": "FTO",
+   "curto": "Falha abrir"
+  },
+  {
+   "codigo": "FTS",
+   "curto": "Falha partir"
+  },
+  {
+   "codigo": "HIO",
+   "curto": "Saída alta"
+  },
+  {
+   "codigo": "IHT",
+   "curto": "Transf.calor insuf."
+  },
+  {
+   "codigo": "ILP",
+   "curto": "Vaz.int.processo"
+  },
+  {
+   "codigo": "INL",
+   "curto": "Vaz.interno"
+  },
+  {
+   "codigo": "ISB",
+   "curto": "Seg.informação"
+  },
+  {
+   "codigo": "LCP",
+   "curto": "Vaz.pos.fechada"
+  },
+  {
+   "codigo": "LOA",
+   "curto": "Queda de carga"
+  },
+  {
+   "codigo": "LOO",
+   "curto": "Saída baixa"
+  },
+  {
+   "codigo": "LOP",
+   "curto": "Perda potência"
+  },
+  {
+   "codigo": "LOR",
+   "curto": "Perda redundância"
+  },
+  {
+   "codigo": "LRM",
+   "curto": "Perda ger.remoto"
+  },
+  {
+   "codigo": "NAC",
+   "curto": "Alarme inaceitável"
+  },
+  {
+   "codigo": "NOI",
+   "curto": "Ruído"
+  },
+  {
+   "codigo": "NON",
+   "curto": "Sem efeito"
+  },
+  {
+   "codigo": "NOO",
+   "curto": "Sem saída"
+  },
+  {
+   "codigo": "OHE",
+   "curto": "Superaquecimento"
+  },
+  {
+   "codigo": "OSR",
+   "curto": "Sobrecarga/aviso"
+  },
+  {
+   "codigo": "OTH",
+   "curto": "Outros"
+  },
+  {
+   "codigo": "PDE",
+   "curto": "Desvio parâmetro"
+  },
+  {
+   "codigo": "PLU",
+   "curto": "Entupido"
+  },
+  {
+   "codigo": "POW",
+   "curto": "Potência insuf."
+  },
+  {
+   "codigo": "PTF",
+   "curto": "Falha transmissão"
+  },
+  {
+   "codigo": "SBU",
+   "curto": "Acúmulo borra"
+  },
+  {
+   "codigo": "SCF",
+   "curto": "Falha contenção"
+  },
+  {
+   "codigo": "SER",
+   "curto": "Probl. menores"
+  },
+  {
+   "codigo": "SHH",
+   "curto": "Alarme alto espúrio"
+  },
+  {
+   "codigo": "SLL",
+   "curto": "Alarme baixo espúrio"
+  },
+  {
+   "codigo": "SLP",
+   "curto": "Deslizamento"
+  },
+  {
+   "codigo": "SPO",
+   "curto": "Operação espúria"
+  },
+  {
+   "codigo": "STC",
+   "curto": "Def.estrut.contenção"
+  },
+  {
+   "codigo": "STD",
+   "curto": "Def. estrutural"
+  },
+  {
+   "codigo": "STP",
+   "curto": "Falha parar"
+  },
+  {
+   "codigo": "UNK",
+   "curto": "Desconhecido"
+  },
+  {
+   "codigo": "UNS",
+   "curto": "Não especificado"
+  },
+  {
+   "codigo": "UST",
+   "curto": "Parada espúria"
+  },
+  {
+   "codigo": "VIB",
+   "curto": "Vibração"
+  },
+  {
+   "codigo": "WCL",
+   "curto": "Comun.poço-linha"
+  }
+ ],
+ "mecanismo": [
+  {
+   "codigo": "1.0",
+   "curto": "Geral"
+  },
+  {
+   "codigo": "1.1",
+   "curto": "Vazamento"
+  },
+  {
+   "codigo": "1.10",
+   "curto": "Capa externa"
+  },
+  {
+   "codigo": "1.11",
+   "curto": "Anular."
+  },
+  {
+   "codigo": "1.12",
+   "curto": "Colapso carcaça"
+  },
+  {
+   "codigo": "1.13",
+   "curto": "Arrancamento do."
+  },
+  {
+   "codigo": "1.14",
+   "curto": "Junta EX."
+  },
+  {
+   "codigo": "1.15",
+   "curto": "Invólucro/IP"
+  },
+  {
+   "codigo": "1.16",
+   "curto": "Junta EX"
+  },
+  {
+   "codigo": "1.2",
+   "curto": "Vibração"
+  },
+  {
+   "codigo": "1.3",
+   "curto": "Desalinhamento"
+  },
+  {
+   "codigo": "1.4",
+   "curto": "Deformação"
+  },
+  {
+   "codigo": "1.5",
+   "curto": "Afrouxamento"
+  },
+  {
+   "codigo": "1.6",
+   "curto": "Travamento"
+  },
+  {
+   "codigo": "1.7",
+   "curto": "Isolamento"
+  },
+  {
+   "codigo": "1.8",
+   "curto": "Suporte"
+  },
+  {
+   "codigo": "1.9",
+   "curto": "Revestimento"
+  },
+  {
+   "codigo": "11",
+   "curto": "Capa externa"
+  },
+  {
+   "codigo": "2.1",
+   "curto": "Cavitação"
+  },
+  {
+   "codigo": "2.10",
+   "curto": "Trinca"
+  },
+  {
+   "codigo": "2.11",
+   "curto": "Dano flange"
+  },
+  {
+   "codigo": "2.12",
+   "curto": "Parafusos degrad."
+  },
+  {
+   "codigo": "2.13",
+   "curto": "Prot.catódica"
+  },
+  {
+   "codigo": "2.14",
+   "curto": "Cloretos"
+  },
+  {
+   "codigo": "2.15",
+   "curto": "Concreto"
+  },
+  {
+   "codigo": "2.16",
+   "curto": "Junta EX."
+  },
+  {
+   "codigo": "2.17",
+   "curto": "Degradação natural"
+  },
+  {
+   "codigo": "2.2",
+   "curto": "Corrosão interna"
+  },
+  {
+   "codigo": "2.20",
+   "curto": "CUI"
+  },
+  {
+   "codigo": "2.21",
+   "curto": "Corrosão parafusos"
+  },
+  {
+   "codigo": "2.3",
+   "curto": "Erosão"
+  },
+  {
+   "codigo": "2.4",
+   "curto": "Desgaste"
+  },
+  {
+   "codigo": "2.5",
+   "curto": "Quebra/ruptura"
+  },
+  {
+   "codigo": "2.6",
+   "curto": "Fadiga"
+  },
+  {
+   "codigo": "2.7",
+   "curto": "Superaquecimento"
+  },
+  {
+   "codigo": "2.8",
+   "curto": "Estouro"
+  },
+  {
+   "codigo": "2.9",
+   "curto": "Corrosão externa"
+  },
+  {
+   "codigo": "3.0",
+   "curto": "Geral"
+  },
+  {
+   "codigo": "3.1",
+   "curto": "Falha controle"
+  },
+  {
+   "codigo": "3.2",
+   "curto": "Sem sinal"
+  },
+  {
+   "codigo": "3.3",
+   "curto": "Sinal defeituoso"
+  },
+  {
+   "codigo": "3.4",
+   "curto": "Desajustado"
+  },
+  {
+   "codigo": "3.5",
+   "curto": "Falha software"
+  },
+  {
+   "codigo": "3.6",
+   "curto": "Falha de causa."
+  },
+  {
+   "codigo": "4.1",
+   "curto": "Curto-circuito"
+  },
+  {
+   "codigo": "4.2",
+   "curto": "Circuito aberto"
+  },
+  {
+   "codigo": "4.3",
+   "curto": "Sem energia"
+  },
+  {
+   "codigo": "4.4",
+   "curto": "Tensão defeituosa"
+  },
+  {
+   "codigo": "4.5",
+   "curto": "Falha de."
+  },
+  {
+   "codigo": "4.6",
+   "curto": "Conexão elétrica"
+  },
+  {
+   "codigo": "5.1",
+   "curto": "Entupimento"
+  },
+  {
+   "codigo": "5.2",
+   "curto": "Contaminação"
+  },
+  {
+   "codigo": "5.3",
+   "curto": "Influência externa"
+  },
+  {
+   "codigo": "5.4",
+   "curto": "Incrustação."
+  },
+  {
+   "codigo": "5.5",
+   "curto": "Erosão marinha"
+  },
+  {
+   "codigo": "5.6",
+   "curto": "Vão livre"
+  },
+  {
+   "codigo": "5.7",
+   "curto": "Contato prejudicial"
+  },
+  {
+   "codigo": "5.8",
+   "curto": "Config. incorreta"
+  },
+  {
+   "codigo": "5.9",
+   "curto": "Fora pressão/temp"
+  },
+  {
+   "codigo": "6.1",
+   "curto": "Sem causa"
+  },
+  {
+   "codigo": "6.2",
+   "curto": "Causas combinadas"
+  },
+  {
+   "codigo": "6.3",
+   "curto": "Outro"
+  },
+  {
+   "codigo": "6.4",
+   "curto": "Desconhecido"
+  },
+  {
+   "codigo": "6.5",
+   "curto": "Desvio projeto"
+  }
+ ],
+ "deteccao": [
+  {
+   "codigo": "1",
+   "curto": "Manut. periódica"
+  },
+  {
+   "codigo": "10",
+   "curto": "Outro"
+  },
+  {
+   "codigo": "2",
+   "curto": "Teste funcional"
+  },
+  {
+   "codigo": "3",
+   "curto": "Inspeção"
+  },
+  {
+   "codigo": "4",
+   "curto": "Monitor. periódico"
+  },
+  {
+   "codigo": "5",
+   "curto": "Monitor. contínuo"
+  },
+  {
+   "codigo": "6",
+   "curto": "Interf. produção"
+  },
+  {
+   "codigo": "7",
+   "curto": "Observ. casual"
+  },
+  {
+   "codigo": "8",
+   "curto": "Manut. corretiva"
+  },
+  {
+   "codigo": "9",
+   "curto": "Sob demanda"
+  }
+ ]
+}

@@ -32,7 +32,9 @@ from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE_DIR, "modelo_classificacao_falhas.pkl")
+MODEL_PATH = os.environ.get(
+    "MODEL_PATH", os.path.join(BASE_DIR, "modelo_classificacao_falhas.pkl")
+)
 
 # --- 1. BANCO DE DADOS (opcional) -------------------------------------------
 # SQLite por padrão; aceita qualquer DATABASE_URL do SQLAlchemy (ex.: Postgres).

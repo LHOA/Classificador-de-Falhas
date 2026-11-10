@@ -22,3 +22,18 @@ __pycache__/
 
 # Material de apresentação (não faz parte da aplicação)
 *.pptx
+
+# benchmark (modelos e respostas cruas)
+bench/artifacts/
+bench/results/raw/
+
+# Sessões e planos locais
+.hermes/
+.venv/
+
+# dados derivados do histórico (não publicar)
+bench/results/laya/
+bench/results/train_set.csv
+
+# arquivo da rodada antiga (n=5), mantido só localmente
+bench/results_n5/

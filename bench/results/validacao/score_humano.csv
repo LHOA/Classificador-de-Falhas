@@ -1,0 +1,7 @@
+Modelo,Modo,Mecanismo,Detecção,Total,Top-1
+XGBoost (publicado),10/30,12/30,10/30,32/90,36%
+XGBoost (sem as notas de teste),9/30,13/30,13/30,35/90,39%
+LLM — prompt base,15/30,16/30,14/30,45/90,50%
+LLM — + ISO 14224,14/30,12/30,14/30,40/90,44%
+LLM — ISO + exemplos,14/30,14/30,14/30,42/90,47%
+Laya (zero-shot),1/30,0/30,4/30,5/90,6%

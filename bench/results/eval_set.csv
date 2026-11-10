@@ -1,0 +1,31 @@
+Tag,Description,FailureImp,DetMethod,FailMode,FailMech,eixos,example_id
+válvula_de_controle_72,"Válvula de controle após parada programada apresentou vibração excessiva com aumento progressivo. A análise preliminar indica fadiga mecânica por ciclos elevados, resultando em necessidade de intervenção imediata.",U,5,LOP,4.4,mecanismo,ex00214
+forno_industrial_85,"Forno industrial durante operação contínua entregou leituras inconsistentes nos instrumentos. A análise preliminar indica trinca evolutiva não detectada anteriormente, resultando em aumento do consumo de energia.",D,7,ELP,1.1,deteccao,ex00383
+secador_rotativo_35,"Secador rotativo no momento de partida apresentou perda significativa de desempenho. A análise preliminar indica danos térmicos devido à sobrecarga, resultando em redução de eficiência operacional.",S,6,LOP,4.4,modo,ex00443
+tanque_de_armazenamento_27,"Tanque de armazenamento durante teste funcional parou repentinamente sem alarme prévio. A análise preliminar indica obstrução parcial interna, resultando em interrupção inesperada na produção.",U,9,FTS,3.5,modo,ex01008
+alarme_temperatura_mancal_09,"Alarme de temperatura alta ativado sem aquecimento real. A análise indica erro de configuração no setpoint, resultando em alarme espúrio.",U,5,SHH,3.4,modo,ex01636
+quebra_peca_nova,Eixo novo quebrou prematuramente. A análise metalográfica inconclusiva sobre fadiga ou defeito de material.,D,8,UNK,6.4,mecanismo,ex01993
+termostato_descalibrado,"Termostato atuando antes da temperatura. A análise indica perda de calibração, resultando em alarme de alta temperatura prematuro.",S,2,SHH,3.4,deteccao,ex01999
+piso_fabrica_buraco_02,Buraco no piso industrial. A análise indica tráfego pesado e concreto de baixa resistência.,U,3,STD,2.15,modo,ex02172
+mangueira_queimador_ressecada,Mangueira de óleo combustível vazando. Borracha ressecada e trincada pelo calor.,S,3,ELF,2.17,deteccao,ex02457
+vaso_pressao_corrosao,Ruptura do vaso. Perda de espessura por corrosão interna.,D,6,EXP,2.2,mecanismo,ex02767
+modulo_saida_transistor,Saída em curto. Transistor de saída queimado.,S,5,021,4.1,modo,ex02924
+cartao_eixo_erro,Servo parado. Erro de hardware no cartão.,D,5,CSF,3.5,modo,ex02961
+placa_eletronica_solda_fria,Falha intermitente. Solda fria no componente.,D,8,EFA,6.5,modo,ex02983
+sensor_nivel_espuma,Sensor de nível ultrassônico indicando nível baixo falso. Camada densa de espuma absorveu o sinal do sensor.,S,5,AOL,5.3,mecanismo,ex03154
+trava_emperrada,Trava elétrica não abre. Mecanismo emperrado por sujeira e falta de lubrificação.,D,2,FTL,5.1,mecanismo,ex03271
+mancal_rolamento_falta_graxa,Mancal quente. Graxeira quebrada impediu lubrificação.,S,4,OHE,1.6,deteccao,ex03456
+valvula_diafragma_travada_vacuo,"Válvula de diafragma não abre. O diafragma ""colou"" na sede devido ao vácuo na linha quando parada.",S,9,FTO,5.9,mecanismo,ex03746
+flotacao_ar_bloqueado,Entrada de ar da célula bloqueada. Incrustação de reagentes no eixo oco.,S,5,LOO,5.2,modo,ex03871
+secador_rotativo_vibracao,Secador vibrando. Rolos de apoio desalinhados ou ovais.,S,5,VIB,2.4,deteccao,ex03995
+painel_contator_corretiva_03,"Ao trocar o contator queimado, viu-se que o trilho DIN estava solto. Falha de fixação encontrada na corretiva elétrica.",U,8,STD,1.5,deteccao,ex04314
+BOTOEIRA-EX-EIXO,Eixo da botoeira Ex travado. Óxidos de corrosão no mecanismo de acionamento impedem o movimento.,S,9,FTF,2.16,modo,ex05147
+CONECTOR-SOLTO-VIBRA,Perda intermitente de sinal. Conector do cabo de rede soltou devido à vibração da máquina.,S,5,NOO,3.2,mecanismo,ex05165
+MEDIDOR-VAZAO-RUIDO,Sinal de vazão com ruído elétrico. Falta de aterramento adequado na blindagem do cabo.,S,5,ERO,3.3,mecanismo,ex05173
+OPERACAO-ERRO-MANUAL,Válvula fechada indevidamente. Erro operacional por falta de treinamento ou desatenção.,D,6,NOO,6.3,deteccao,ex05198
+BOMBA-ROTOR-CL-05,Rotor corroído. Bombeamento de água do mar com material 304.,S,3,STD,2.14,mecanismo,ex05293
+SENSOR-PRESSAO-SEM-SINAL-05,Pressão indica zero. Conector do sensor solto.,D,5,NOO,3.2,deteccao,ex05303
+TANQUE-DEFORMACAO-VACUO,Tanque deformou. Válvula de vácuo travada na descarga.,D,6,STC,1.12,modo,ex05785
+SENSOR-CORROSAO-POCO,Sem dados de corrosão. Probe consumida ou falha.,U,5,WCL,2.17,mecanismo,ex05892
+ATUADOR-ELETRICO-CAPACITOR,Válvula motorizada não parte. Capacitor de partida do motor monofásico estufado.,D,9,FTF,2.17,deteccao,ex06399
+CARREGADEIRA-PNEU-CORTE,Pneu dianteiro com corte lateral profundo. Rocha afiada na praça de carregamento (falha de limpeza de pista).,D,6,BRD,5.3,deteccao,ex06647

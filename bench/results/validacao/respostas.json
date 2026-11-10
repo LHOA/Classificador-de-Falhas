@@ -1,0 +1,184 @@
+{
+  "1": {
+    "example_id": "ex00214",
+    "modo": "VIB",
+    "mecanismo": "2.6",
+    "deteccao": "8"
+  },
+  "2": {
+    "example_id": "ex00383",
+    "modo": "ERO",
+    "mecanismo": "2.10",
+    "deteccao": "4"
+  },
+  "3": {
+    "example_id": "ex00443",
+    "modo": "OHE",
+    "mecanismo": "1.5",
+    "deteccao": "9"
+  },
+  "4": {
+    "example_id": "ex01008",
+    "modo": "PLU",
+    "mecanismo": "5.1",
+    "deteccao": "2"
+  },
+  "5": {
+    "example_id": "ex01636",
+    "modo": "SHH",
+    "mecanismo": "3.4",
+    "deteccao": "5"
+  },
+  "6": {
+    "example_id": "ex01993",
+    "modo": "STD",
+    "mecanismo": "2.6",
+    "deteccao": "7"
+  },
+  "7": {
+    "example_id": "ex01999",
+    "modo": "SPO",
+    "mecanismo": "3.4",
+    "deteccao": "9"
+  },
+  "8": {
+    "example_id": "ex02172",
+    "modo": "STD",
+    "mecanismo": "2.15",
+    "deteccao": "7"
+  },
+  "9": {
+    "example_id": "ex02457",
+    "modo": "ELF",
+    "mecanismo": "2.17",
+    "deteccao": "7"
+  },
+  "10": {
+    "example_id": "ex02767",
+    "modo": "STD",
+    "mecanismo": "2.2",
+    "deteccao": "7"
+  },
+  "11": {
+    "example_id": "ex02924",
+    "modo": "OHE",
+    "mecanismo": "4.1",
+    "deteccao": "9"
+  },
+  "12": {
+    "example_id": "ex02961",
+    "modo": "NOO",
+    "mecanismo": "3.5",
+    "deteccao": "5"
+  },
+  "13": {
+    "example_id": "ex02983",
+    "modo": "FTI",
+    "mecanismo": "6.5",
+    "deteccao": "5"
+  },
+  "14": {
+    "example_id": "ex03154",
+    "modo": "ERO",
+    "mecanismo": "5.3",
+    "deteccao": "5"
+  },
+  "15": {
+    "example_id": "ex03271",
+    "modo": "FTO",
+    "mecanismo": "2.17",
+    "deteccao": "9"
+  },
+  "16": {
+    "example_id": "ex03456",
+    "modo": "OHE",
+    "mecanismo": "2.5",
+    "deteccao": "7"
+  },
+  "17": {
+    "example_id": "ex03746",
+    "modo": "FTO",
+    "mecanismo": "5.9",
+    "deteccao": "9"
+  },
+  "18": {
+    "example_id": "ex03871",
+    "modo": "PLU",
+    "mecanismo": "5.1",
+    "deteccao": "7"
+  },
+  "19": {
+    "example_id": "ex03995",
+    "modo": "VIB",
+    "mecanismo": "1.3",
+    "deteccao": "5"
+  },
+  "20": {
+    "example_id": "ex04314",
+    "modo": "OHE",
+    "mecanismo": "1.5",
+    "deteccao": "8"
+  },
+  "21": {
+    "example_id": "ex05147",
+    "modo": "FTF",
+    "mecanismo": "1.6",
+    "deteccao": "7",
+    "obs": "deteccao: anotador citou casual ou on demand"
+  },
+  "22": {
+    "example_id": "ex05165",
+    "modo": "ERO",
+    "mecanismo": "1.5",
+    "deteccao": "5"
+  },
+  "23": {
+    "example_id": "ex05173",
+    "modo": "ERO",
+    "mecanismo": "4.6",
+    "deteccao": "5",
+    "obs": "mecanismo: anotador respondeu falta de aterramento; mapeado para 4.6 conexao eletrica"
+  },
+  "24": {
+    "example_id": "ex05198",
+    "modo": "SPO",
+    "mecanismo": "6.3",
+    "deteccao": "6"
+  },
+  "25": {
+    "example_id": "ex05293",
+    "modo": "STD",
+    "mecanismo": "2.9",
+    "deteccao": "7"
+  },
+  "26": {
+    "example_id": "ex05303",
+    "modo": "NOO",
+    "mecanismo": "3.2",
+    "deteccao": "5"
+  },
+  "27": {
+    "example_id": "ex05785",
+    "modo": "STD",
+    "mecanismo": "1.12",
+    "deteccao": "9"
+  },
+  "28": {
+    "example_id": "ex05892",
+    "modo": "NOO",
+    "mecanismo": "2.4",
+    "deteccao": "1"
+  },
+  "29": {
+    "example_id": "ex06399",
+    "modo": "FTS",
+    "mecanismo": "2.7",
+    "deteccao": "9"
+  },
+  "30": {
+    "example_id": "ex06647",
+    "modo": "STD",
+    "mecanismo": "5.3",
+    "deteccao": "9"
+  }
+}
